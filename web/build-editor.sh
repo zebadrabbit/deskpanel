@@ -9,7 +9,7 @@ cd "$(dirname "$0")"
 SRC=${SRC:-../aggregator/editor}
 rm -rf editor
 mkdir editor
-for f in index.html editor.css editor.js model.js demo-data.json; do
+for f in index.html editor.css editor.js model.js demo-data.json favicon.svg; do
   cp "$SRC/$f" "editor/$f"
 done
 cp "$SRC/backend.demo.js" editor/backend.js
