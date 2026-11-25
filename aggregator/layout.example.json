@@ -1,0 +1,55 @@
+{
+  "tour": {"on": true, "idle_min": 5, "clock_s": 60, "tab_s": 20, "clock": true, "skip": []},
+  "tabs": [
+    {
+      "name": "Homelab",
+      "cards": [
+        {"id": "gpu-workstation", "type": "gpu", "at": [1, 1], "size": "2x3", "src": "workstation", "tap": "none"},
+        {"id": "gpu-server", "type": "gpu", "at": [3, 1], "size": "2x3", "src": "server", "tap": "none"},
+        {"id": "pool-tank", "type": "pool", "at": [1, 4], "size": "1x2", "src": "tank", "tap": "none"},
+        {"id": "pool-backup", "type": "pool", "at": [2, 4], "size": "1x2", "src": "backup", "tap": "none"},
+        {"id": "pool-boot-pool", "type": "pool", "at": [3, 4], "size": "1x2", "src": "boot-pool", "tap": "none"},
+        {"id": "nas-alerts", "type": "nas-alerts", "at": [4, 4], "size": "1x2", "tap": "alert-details"},
+        {"id": "dots", "type": "dots", "at": [1, 6], "size": "4x1", "src": "both", "tap": "none"}
+      ]
+    },
+    {
+      "name": "Planka",
+      "cards": [{"id": "board", "type": "board", "at": [1, 1], "size": "4x6", "tap": "none"}]
+    },
+    {
+      "name": "Weather",
+      "cards": [{"id": "radar", "type": "radar", "at": [1, 1], "size": "4x6", "tap": "none"}]
+    },
+    {
+      "name": "server",
+      "cards": [
+        {"id": "pl-cpu", "type": "graph", "at": [1, 1], "size": "2x3", "title": "server CPU", "value": "cpu", "unit": "%", "warn": 80, "bad": 95, "tap": "none"},
+        {"id": "pl-temp", "type": "gauge", "at": [3, 1], "size": "1x2", "title": "Temp", "value": "temp"},
+        {"id": "pl-load", "type": "number", "at": [4, 1], "size": "1x2", "title": "Load", "value": "load"},
+        {"id": "pl-up", "type": "number", "at": [3, 3], "size": "1x1", "title": "Up", "value": "uptime"},
+        {"id": "pl-prom", "type": "status", "at": [4, 3], "size": "1x1", "title": "Prometheus", "value": {"prometheus": "up{job=\"prometheus\"}"}},
+        {"id": "pl-ram", "type": "bar", "at": [1, 4], "size": "1x2", "title": "RAM", "value": "ram"},
+        {"id": "pl-disk", "type": "bar", "at": [2, 4], "size": "1x2", "title": "Disk /", "value": "disk:/"},
+        {"id": "pl-net", "type": "graph", "at": [3, 4], "size": "2x2", "title": "Network", "value": "net"},
+        {"id": "pl-dots", "type": "dots", "at": [1, 6], "size": "4x1", "src": "both"}
+      ]
+    },
+    {
+      "name": "App",
+      "cards": [
+        {"id": "app-queue", "type": "number", "at": [1, 1], "size": "2x2", "title": "Queue", "unit": "jobs", "value": {"json": {"url": "http://app.lan/api/status", "path": "queue.depth"}}},
+        {"id": "app-status", "type": "status", "at": [3, 1], "size": "2x1", "title": "App", "value": {"json": {"url": "http://app.lan/api/status", "path": "status", "every": 60}}}
+      ]
+    },
+    {
+      "name": "Home",
+      "cards": [
+        {"id": "ha-temp", "type": "number", "at": [1, 1], "size": "2x2", "title": "Living room", "value": {"ha": "sensor.living_room_temperature"}},
+        {"id": "ha-humidity", "type": "gauge", "at": [3, 1], "size": "1x2", "title": "Humidity", "value": {"ha": "sensor.living_room_humidity", "every": 60}},
+        {"id": "ha-tv", "type": "status", "at": [1, 3], "size": "2x1", "title": "TV", "value": {"ha": "media_player.living_room_tv"}},
+        {"id": "ha-light", "type": "bar", "at": [3, 3], "size": "1x1", "title": "Kitchen light", "min": 0, "max": 255, "value": {"ha": "light.kitchen", "attr": "brightness"}}
+      ]
+    }
+  ]
+}

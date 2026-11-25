@@ -1,0 +1,65 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.test-far.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[-82.05, 39.70], [-82.05, 39.80], [-81.95, 39.80], [-81.95, 39.70], [-82.05, 39.70]]]
+            },
+            "properties": {
+                "id": "urn:oid:2.49.0.1.840.0.test-far.001.1",
+                "references": [],
+                "sent": "2026-11-18T15:05:00-05:00",
+                "expires": "2026-11-18T15:45:00-05:00",
+                "ends": null,
+                "messageType": "Alert",
+                "event": "Tornado Warning",
+                "headline": "Tornado Warning far away",
+                "description": "Made-up far warning.",
+                "parameters": {}
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.test-svr2.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[-97.15, 40.25], [-97.15, 40.35], [-97.03, 40.35], [-97.03, 40.25], [-97.15, 40.25]]]
+            },
+            "properties": {
+                "id": "urn:oid:2.49.0.1.840.0.test-svr2.001.1",
+                "references": [],
+                "sent": "2026-11-18T13:55:00-06:00",
+                "expires": "2026-11-18T14:40:00-06:00",
+                "ends": null,
+                "messageType": "Alert",
+                "event": "Severe Thunderstorm Warning",
+                "headline": "Severe Thunderstorm Warning north of the example point",
+                "description": "Made-up severe storm.",
+                "parameters": {}
+            }
+        },
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.test-tor.001.1",
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[-97.15, 39.70], [-97.15, 39.80], [-97.03, 39.80], [-97.03, 39.70], [-97.15, 39.70]]]
+            },
+            "properties": {
+                "id": "urn:oid:2.49.0.1.840.0.test-tor.001.1",
+                "references": [],
+                "sent": "2026-11-18T14:02:00-06:00",
+                "expires": "2026-11-18T14:45:00-06:00",
+                "ends": null,
+                "messageType": "Alert",
+                "event": "Tornado Warning",
+                "headline": "Tornado Warning issued November 18 at 2:02PM CST until 2:45PM CST by NWS Example Office",
+                "description": "A made-up storm with rotation.",
+                "parameters": {"tornadoDetection": ["RADAR INDICATED"]}
+            }
+        }
+    ]
+}

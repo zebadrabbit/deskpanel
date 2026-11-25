@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>deskpanel flasher</title>
+<meta name="description" content="Flash the deskpanel firmware onto a Waveshare ESP32-S3-Touch-LCD-4.3B from your browser, make its settings.txt, start the server.">
+<script type="module" src="vendor/esp-web-tools/install-button.js"></script>
+<style>
+  :root {
+    --bg: #070b14; --card: #0e1626; --edge: #1d2a44; --navy: #16264a;
+    --text: #e6edf3; --dim: #8b949e; --gold: #d8b25e; --gold-hi: #ecc978;
+    --ok: #3fb950; --bad: #f85149; --blue: #58a6ff;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { background: var(--bg); }
+  img { height: auto; }
+  body {
+    margin: 0; color: var(--text); line-height: 1.55;
+    font: 16px/1.55 Montserrat, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(1100px 520px at 50% -140px, #14234a 0%, transparent 70%), var(--bg);
+  }
+  main { max-width: 860px; margin: 0 auto; padding: 0 16px 64px; }
+  a { color: var(--gold-hi); }
+  code, pre, kbd { font-family: ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace; font-size: .88em; }
+  code { background: #ffffff10; padding: .1em .35em; border-radius: 4px; }
+  kbd { border: 1px solid var(--edge); border-bottom-width: 2px; border-radius: 4px; padding: 0 .35em; }
+  pre {
+    background: #050810; border: 1px solid var(--edge); border-radius: 8px; padding: 12px 14px;
+    overflow-x: auto; line-height: 1.5; margin: 8px 0 16px;
+  }
+  pre .fill { color: var(--gold-hi); }
+  pre .note { color: var(--dim); }
+
+  header { text-align: center; padding: 56px 0 28px; }
+  h1.mark { margin: 0; display: inline-flex; align-items: center; gap: 12px; font-size: 34px; font-weight: 600; letter-spacing: .5px; }
+  header p { color: var(--dim); font-size: 18px; margin: 10px 0 0; }
+  header p b { color: var(--gold); font-weight: 600; }
+  .hero { display: block; width: 100%; max-width: 720px; margin: 28px auto 0; border-radius: 14px; border: 1px solid var(--edge); }
+
+  .step { background: var(--card); border: 1px solid var(--edge); border-radius: 14px; padding: 24px 26px; margin: 28px 0; }
+  .step > h2 { display: flex; align-items: center; gap: 14px; margin: 0 0 14px; font-size: 22px; font-weight: 600; }
+  .num {
+    flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
+    border: 2px solid var(--gold); color: var(--gold); font-size: 18px; box-shadow: 0 0 0 4px var(--navy);
+  }
+  .step h3 { font-size: 16px; margin: 20px 0 6px; color: var(--gold); font-weight: 600; letter-spacing: .3px; }
+  .dim { color: var(--dim); }
+  ul, ol { padding-left: 22px; margin: 6px 0; }
+  li { margin: 3px 0; }
+
+  .btn, esp-web-install-button button {
+    font: inherit; font-weight: 600; font-size: 17px; cursor: pointer;
+    background: var(--gold); color: #1a1406; border: 0; border-radius: 999px; padding: 12px 28px;
+  }
+  .btn:hover, esp-web-install-button button:hover { background: var(--gold-hi); }
+  .btn.ghost { background: transparent; color: var(--gold-hi); border: 1px solid var(--gold); padding: 7px 14px; font-size: 14px; }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  .flash { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin: 16px 0 6px; }
+  esp-web-install-button:not(:defined) [slot] { display: none; } /* the script didn't load: esptool below */
+  .warn { background: #d2992218; border: 1px solid #d2992260; border-radius: 8px; padding: 10px 14px; }
+
+  details { margin: 10px 0; border-top: 1px solid var(--edge); padding-top: 10px; }
+  summary { cursor: pointer; color: var(--gold-hi); }
+  figure { margin: 14px 0 0; }
+  figure img { width: 100%; max-width: 480px; border-radius: 8px; border: 1px solid var(--edge); display: block; }
+  figcaption { color: var(--dim); font-size: 14px; margin-top: 6px; }
+
+  form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; margin-top: 14px; }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .field.wide { grid-column: 1 / -1; }
+  label { font-size: 14px; color: var(--dim); }
+  input, select {
+    font: inherit; color: var(--text); background: #050810; border: 1px solid var(--edge); border-radius: 8px;
+    padding: 9px 11px; width: 100%; min-width: 0;
+  }
+  input:focus, select:focus { border-color: var(--gold); }
+  input[aria-invalid="true"] { border-color: var(--bad); }
+  .row { display: flex; gap: 8px; }
+  .err { color: var(--bad); font-size: 13px; min-height: 0; }
+  .hint { color: var(--dim); font-size: 13px; }
+  .private { display: flex; gap: 10px; align-items: flex-start; color: var(--dim); font-size: 14px; margin-top: 4px; }
+  .private svg { flex: none; margin-top: 2px; }
+  .done { color: var(--ok); font-size: 14px; }
+
+  footer { text-align: center; color: var(--dim); font-size: 14px; }
+  @media (max-width: 640px) {
+    form { grid-template-columns: 1fr; }
+    .step { padding: 20px 16px; }
+    header { padding-top: 36px; }
+    h1.mark { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1 class="mark">
+    <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
+      <circle cx="20" cy="20" r="17" fill="#16264a" stroke="#d8b25e" stroke-width="2.5"/>
+      <path d="M20 20 L20 8 M20 20 L28 25" stroke="#d8b25e" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="20" cy="20" r="2.5" fill="#d8b25e"/>
+    </svg>
+    deskpanel
+  </h1>
+  <p>An always-on homelab status screen. <b>Connect, flash, go.</b></p>
+  <img class="hero" src="img/tour.png" width="800" height="480" onerror="this.remove()"
+       alt="The panel touring its tabs: GPUs, storage pools, NAS alerts, task boards, weather radar and the astronomical clock">
+</header>
+
+<section class="step">
+  <h2><span class="num">1</span>Connect &amp; flash</h2>
+  <ul>
+    <li>The board: <b>Waveshare ESP32-S3-Touch-LCD-4.3B</b> (the <b>B</b> variant; other boards won't work).</li>
+    <li>A USB-C <b>data</b> cable (some cables only charge) and Chrome or Edge on a computer.</li>
+  </ul>
+  <ol>
+    <li>Plug the board's USB-C port into this computer.</li>
+    <li>Click <b>Connect &amp; flash</b> and pick the port named <b>USB JTAG/serial debug unit</b>.</li>
+    <li>Click <b>Install deskpanel</b>. It erases the board, then writes the firmware: about two minutes.</li>
+  </ol>
+  <div class="flash">
+    <esp-web-install-button manifest="manifest.json">
+      <button slot="activate">Connect &amp; flash</button>
+      <div slot="unsupported" class="warn">This browser can't reach USB serial ports. Open this page in <b>Chrome</b> or <b>Edge</b> on a computer, or flash from the command line (below).</div>
+      <div slot="not-allowed" class="warn">Flashing in the browser needs this page on <code>https://</code> or <code>http://localhost</code>. Or flash from the command line (below).</div>
+    </esp-web-install-button>
+    <span id="fw" class="dim"></span>
+  </div>
+  <details>
+    <summary>It doesn't connect, or the port isn't in the list</summary>
+    <ul>
+      <li>Try another cable or USB port. A charge-only cable shows no port at all.</li>
+      <li><b>Download mode:</b> hold the board's <kbd>BOOT</kbd> button, tap <kbd>RESET</kbd>, let go of <kbd>BOOT</kbd>, then click Connect again. After flashing, tap <kbd>RESET</kbd> once to start the new firmware.</li>
+      <li>Linux: your user needs the serial group: <code>sudo usermod -aG dialout $USER</code> (Arch: <code>uucp</code>), then log out and back in.</li>
+      <li>Close anything else using the port (a serial monitor, another flasher tab).</li>
+    </ul>
+  </details>
+  <details id="manual">
+    <summary>No Chrome or Edge? Flash from the command line</summary>
+    <p>Download <a id="binlink" href="#manual">the firmware image</a>, then, with Python's esptool (<code>pip install esptool</code>):</p>
+<pre>esptool.py --chip esp32s3 write_flash 0x0 <span class="fill" id="binname">deskpanel-&lt;version&gt;.bin</span></pre>
+    <p class="dim">One image for offset 0: bootloader, partition table and app. If it can't connect, use download mode (above).</p>
+  </details>
+  <figure>
+    <img src="img/first-boot.png" width="800" height="480"
+         alt="The panel saying: Wi-Fi isn't set up yet. Put a settings.txt on the SD card and restart." onerror="this.parentNode.remove()">
+    <figcaption>Freshly flashed, the panel says this. That's expected: it doesn't know your Wi-Fi yet. Step 2.</figcaption>
+  </figure>
+</section>
+
+<section class="step">
+  <h2><span class="num">2</span>Make your settings.txt</h2>
+  <p>The panel reads its Wi-Fi, server address, token and time zone from <code>settings.txt</code> on its microSD card.</p>
+  <form id="settings" novalidate>
+    <div class="field">
+      <label for="ssid">Wi-Fi name</label>
+      <input id="ssid" aria-describedby="ssid-hint ssid-err" autocomplete="off" spellcheck="false" placeholder="MyNetwork">
+      <span class="hint" id="ssid-hint">2.4 GHz only: the panel can't see 5 GHz networks.</span>
+      <span class="err" id="ssid-err" aria-live="polite"></span>
+    </div>
+    <div class="field">
+      <label for="pass">Wi-Fi password</label>
+      <input id="pass" aria-describedby="pass-err" type="password" autocomplete="off" spellcheck="false">
+      <label class="hint"><input type="checkbox" id="show" style="width:auto"> Show</label>
+      <span class="err" id="pass-err" aria-live="polite"></span>
+    </div>
+    <div class="field">
+      <label for="url">Server address (where the aggregator runs)</label>
+      <input id="url" aria-describedby="url-hint url-err" autocomplete="off" spellcheck="false" placeholder="http://192.168.0.20:8088">
+      <span class="hint" id="url-hint">That machine's LAN address and port 8088. Plain <code>http://</code>.</span>
+      <span class="err" id="url-err" aria-live="polite"></span>
+    </div>
+    <div class="field">
+      <label for="token">Panel token</label>
+      <div class="row">
+        <input id="token" aria-describedby="token-hint token-err" autocomplete="off" spellcheck="false">
+        <button type="button" class="btn ghost" id="newtoken">New</button>
+      </div>
+      <span class="hint" id="token-hint">A new random one, or the <code>PANEL_TOKEN</code> from your aggregator's <code>.env</code>. Step 3 uses the same.</span>
+      <span class="err" id="token-err" aria-live="polite"></span>
+    </div>
+    <div class="field">
+      <label for="tz">Time zone</label>
+      <select id="tz" aria-describedby="tz-err"></select>
+      <span class="err" id="tz-err" aria-live="polite"></span>
+    </div>
+    <div class="field" id="tzother-field" hidden>
+      <label for="tzother">POSIX TZ string</label>
+      <input id="tzother" aria-describedby="tzother-hint tzother-err" autocomplete="off" spellcheck="false" placeholder="CET-1CEST,M3.5.0,M10.5.0/3">
+      <span class="hint" id="tzother-hint">The second column of <a href="https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv">this list</a>.</span>
+      <span class="err" id="tzother-err" aria-live="polite"></span>
+    </div>
+    <details class="field wide">
+      <summary>More: time server</summary>
+      <div class="field" style="margin-top:8px">
+        <label for="ntp">NTP server (empty: pool.ntp.org)</label>
+        <input id="ntp" aria-describedby="ntp-err" autocomplete="off" spellcheck="false" placeholder="pool.ntp.org">
+        <span class="err" id="ntp-err" aria-live="polite"></span>
+      </div>
+    </details>
+    <div class="field wide">
+      <div class="flash" style="margin:0">
+        <button class="btn" type="submit">Download settings.txt</button>
+        <span id="saved" class="done" role="status"></span>
+      </div>
+      <div class="private">
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#d8b25e" stroke-width="2" d="M6 10V7a6 6 0 0 1 12 0v3M5 10h14v11H5z"/></svg>
+        <span>The file is made right here in your browser. Nothing you type is sent anywhere: this page has no server to send it to.</span>
+      </div>
+    </div>
+  </form>
+  <h3>Then</h3>
+  <ol>
+    <li>Copy it to the <b>top folder</b> of a microSD card formatted <b>FAT32</b> (most cards up to 32 GB come that way). The name must be exactly <code>settings.txt</code>: not <code>settings (1).txt</code>, not <code>settings.txt.txt</code>.</li>
+    <li>Card into the panel, tap <kbd>RESET</kbd> (or unplug it and plug it back in). It reads the file once, at boot.</li>
+    <li>The Wi-Fi icon turns green. Until the server runs, the panel shows <b>Waiting for the aggregator…</b></li>
+  </ol>
+  <p class="dim">Change something later? Edit the file on the card and restart the panel. Every key and rule:
+    <a href="https://github.com/zebadrabbit/deskpanel#using-deskpanel">the README</a>.</p>
+</section>
+
+<section class="step">
+  <h2><span class="num">3</span>Start the server</h2>
+  <p>A small Go service on any Linux machine with Docker (amd64 or arm64: a Raspberry Pi 4 or 5 with a 64-bit OS is fine). It makes every API call and hands the panel one compact document.</p>
+  <p class="dim">The token below is the one in the form above. Use the <code>PANEL_TOKEN</code> line of the
+    <code>settings.txt</code> you downloaded: reloading this page makes a new token.</p>
+  <h3>Just try it: fake data, nothing to set up</h3>
+<pre>docker run -d --name deskpanel --restart unless-stopped -p <span class="fill" data-fill="port">8088</span>:8088 \
+  -e DEMO=1 -e PANEL_TOKEN=<span class="fill" data-fill="token">…</span> -e TZ=<span class="fill" data-fill="iana">America/Chicago</span> \
+  ghcr.io/zebadrabbit/deskpanel-aggregator</pre>
+  <h3>For real: your GPUs, pools, services, task boards, weather</h3>
+<pre>git clone https://github.com/zebadrabbit/deskpanel
+cd deskpanel/aggregator
+cp .env.example .env
+<span class="note"># in .env set PANEL_TOKEN=<span class="fill" data-fill="token">…</span>
+#             LISTEN=<span class="fill" data-fill="listen">192.168.0.20:8088</span>  TZ=<span class="fill" data-fill="iana">America/Chicago</span>
+# then the URL of each source you have; leave the rest empty</span>
+docker compose -f compose.image.yaml up -d</pre>
+  <p>Within a few seconds the panel fills in. Each source is explained in
+    <a href="https://github.com/zebadrabbit/deskpanel/blob/main/aggregator/README.md">aggregator/README.md</a>;
+    if the panel says <b>NO DATA</b> or <b>STALE</b>, see
+    <a href="https://github.com/zebadrabbit/deskpanel#when-something-looks-wrong">When something looks wrong</a>.</p>
+</section>
+
+<section class="step">
+  <h2>Try the screen editor</h2>
+  <p>Once the server runs, you can lay out your tabs in a browser instead of editing <code>layout.json</code> by hand.
+    <a href="editor/">Open the demo</a>: the same page, with made-up data. Nothing is saved; <b>Download layout.json</b>
+    gives you the file. How to turn it on for your own server is in the
+    <a href="https://github.com/zebadrabbit/deskpanel#how-do-i">README</a> ("Edit your tabs in the browser?").</p>
+</section>
+
+<footer>
+  <p><a href="https://github.com/zebadrabbit/deskpanel">github.com/zebadrabbit/deskpanel</a> · MIT ·
+    flashing by <a href="https://esphome.github.io/esp-web-tools/">ESP Web Tools</a></p>
+</footer>
+</main>
+
+<script>
+// settings.txt, made here and never sent anywhere. The rules mirror firmware/main/settings.c: one KEY=value per line,
+// no quotes, spaces around the value dropped (so none can start or end it), byte limits from settings_t.
+const $ = id => document.getElementById(id);
+const bytes = s => new TextEncoder().encode(s).length;
+const edges = s => /^[ \t]|[ \t]$/.test(s);
+const ZONES = [ // label, IANA name (the aggregator's TZ), POSIX TZ (the panel's DESKPANEL_TZ)
+  ["US Eastern (New York)", "America/New_York", "EST5EDT,M3.2.0,M11.1.0"],
+  ["US Central (Chicago)", "America/Chicago", "CST6CDT,M3.2.0,M11.1.0"],
+  ["US Mountain (Denver)", "America/Denver", "MST7MDT,M3.2.0,M11.1.0"],
+  ["US Arizona (Phoenix)", "America/Phoenix", "MST7"],
+  ["US Pacific (Los Angeles)", "America/Los_Angeles", "PST8PDT,M3.2.0,M11.1.0"],
+  ["US Alaska (Anchorage)", "America/Anchorage", "AKST9AKDT,M3.2.0,M11.1.0"],
+  ["US Hawaii (Honolulu)", "Pacific/Honolulu", "HST10"],
+  ["UK (London)", "Europe/London", "GMT0BST,M3.5.0/1,M10.5.0"],
+  ["Central Europe (Berlin, Paris)", "Europe/Berlin", "CET-1CEST,M3.5.0,M10.5.0/3"],
+  ["Eastern Europe (Helsinki, Athens)", "Europe/Helsinki", "EET-2EEST,M3.5.0/3,M10.5.0/4"],
+  ["India (Kolkata)", "Asia/Kolkata", "IST-5:30"],
+  ["Japan (Tokyo)", "Asia/Tokyo", "JST-9"],
+  ["Australia East (Sydney)", "Australia/Sydney", "AEST-10AEDT,M10.1.0,M4.1.0/3"],
+  ["New Zealand (Auckland)", "Pacific/Auckland", "NZST-12NZDT,M9.5.0,M4.1.0/3"],
+  ["UTC", "UTC", "UTC0"],
+  ["Other: type a POSIX TZ string", "", ""],
+];
+let here = "";
+try { here = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) {}
+ZONES.forEach(([label, iana], i) => $("tz").add(new Option(label, i)));
+const i = ZONES.findIndex(z => z[1] === here);
+$("tz").value = i < 0 ? 1 : i; // this browser's zone if listed, else US Central
+
+function newToken() { // 48 hex digits, like `openssl rand -hex 24`
+  $("token").value = Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(16).padStart(2, "0")).join("");
+}
+newToken();
+
+function url() { // what the panel will use: http:// added if missing, trailing '/' dropped (as settings.c does)
+  let v = $("url").value.trim().replace(/^http:\/\//i, "http://");
+  if (v && !/^[a-z][a-z0-9+.-]*:\/\//i.test(v)) v = "http://" + v;
+  return v.replace(/\/+$/, "");
+}
+
+// Each check returns "" or what's wrong.
+const plain = (v, max, what) => /[\r\n]/.test(v) ? "One line only."
+  : edges(v) ? `settings.txt can't hold ${what} that starts or ends with a space: change it, or build the firmware yourself with it in secrets.h.`
+  : bytes(v) > max ? `At most ${max} characters (bytes).` : "";
+const checks = {
+  ssid: v => !v ? "Your 2.4 GHz network's name." : plain(v, 31, "a network name"),
+  pass: v => !v ? "" : bytes(v) < 8 ? "8 to 63 characters, or empty for an open network." : plain(v, 63, "a password"),
+  url: () => {
+    const v = url();
+    if (!v) return "Where the aggregator runs, for example http://192.168.0.20:8088.";
+    if (/^https:/i.test(v)) return "Plain http:// only: the panel doesn't do TLS.";
+    const m = /^http:\/\/[A-Za-z0-9._-]+(?::(\d{1,5}))?(?:\/[!-~]*)?$/.exec(v); // settings.c url_ok
+    if (!m || (m[1] !== undefined && (+m[1] < 1 || +m[1] > 65535))) return "http://address:port with no spaces, for example http://192.168.0.20:8088.";
+    return bytes(v) > 95 ? "At most 95 characters." : "";
+  },
+  token: v => !v ? "The aggregator needs one: click New." : !/^[A-Za-z0-9._~+\/=-]+$/.test(v)
+    ? "Letters, digits and . _ ~ + / = - only." : bytes(v) > 95 ? "At most 95 characters." : "",
+  tzother: v => $("tz").value != ZONES.length - 1 ? "" : !v ? "Type a POSIX TZ string, or pick a zone above."
+    : /\s/.test(v) ? "No spaces." : bytes(v) > 63 ? "At most 63 characters." : "",
+  ntp: v => /\s/.test(v) ? "No spaces." : bytes(v) > 63 ? "At most 63 characters." : "",
+};
+
+function check(show) {
+  let first = null;
+  for (const [id, f] of Object.entries(checks)) {
+    const msg = f($(id).value);
+    if (msg && !first) first = $(id);
+    if (show || !msg) { // errors appear on Download, and clear as soon as they're fixed
+      $(id + "-err").textContent = msg;
+      $(id).setAttribute("aria-invalid", msg ? "true" : "false");
+    }
+  }
+  if (show && first) { // focus the first field to fix (the NTP one sits in a closed <details>)
+    first.closest("details")?.setAttribute("open", "");
+    first.focus();
+  }
+  return !first;
+}
+
+function fill() { // step 3's commands use what's typed here
+  const z = ZONES[$("tz").value];
+  const m = /^http:\/\/([^/:]+)(?::(\d+))?/.exec(url()), port = m ? m[2] || "80" : "8088"; // no port: http's 80
+  const val = {
+    token: $("token").value.trim() || "…", iana: z[1] || here || "UTC",
+    port, listen: m ? `${m[1]}:${port}` : "192.168.0.20:8088",
+  };
+  document.querySelectorAll("[data-fill]").forEach(e => { e.textContent = val[e.dataset.fill]; });
+  $("tzother-field").hidden = !!z[2];
+}
+
+$("settings").addEventListener("input", () => { $("saved").textContent = ""; check(false); fill(); });
+$("newtoken").onclick = () => { newToken(); check(false); fill(); };
+$("show").onchange = e => { $("pass").type = e.target.checked ? "text" : "password"; };
+$("settings").addEventListener("submit", e => {
+  e.preventDefault();
+  if (!check(true)) return;
+  const z = ZONES[$("tz").value], ntp = $("ntp").value.trim();
+  const lines = [
+    "# deskpanel settings.txt, made on the flasher page. One KEY=value per line, no quotes.",
+    "# A line starting with # is a comment; # and = inside a value are kept.",
+    "WIFI_SSID=" + $("ssid").value,
+    "WIFI_PASSWORD=" + $("pass").value, // empty: an open network
+    "AGGREGATOR_URL=" + url(),
+    "PANEL_TOKEN=" + $("token").value,
+    "DESKPANEL_TZ=" + (z[2] || $("tzother").value),
+    ...(ntp ? ["NTP_SERVER=" + ntp] : []),
+  ];
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([lines.join("\r\n") + "\r\n"], { type: "text/plain" }));
+  a.download = "settings.txt";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  $("saved").textContent = "Saved. Now copy it to the card.";
+});
+fill();
+
+// The firmware next to this page (firmware/release.sh writes manifest.json and the image).
+fetch("manifest.json").then(r => r.ok ? r.json() : Promise.reject())
+  .then(m => {
+    const path = m.builds[0].parts[0].path;
+    $("fw").textContent = "Firmware " + m.version;
+    $("binlink").href = path;
+    $("binname").textContent = path.split("/").pop();
+  })
+  .catch(() => { $("fw").innerHTML = "No firmware next to this page yet: run <code>sh firmware/release.sh</code>, then reload."; });
+</script>
+</body>
+</html>

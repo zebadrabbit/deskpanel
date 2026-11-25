@@ -1,0 +1,23 @@
+services:
+  deskpanel:
+    build: .
+    image: deskpanel-aggregator
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NOTES_FILE: /data/notes.json # notification history survives restarts
+      WEATHER_CACHE: /data/weather # radar basemap tiles survive restarts
+      LAYOUT_FILE: /config/layout.json
+    # Host networking: health checks of services running directly on this host are
+    # dropped by the host firewall when they come from a Docker bridge subnet. LAN-only is kept by
+    # LISTEN in .env binding the LAN address, not 0.0.0.0, so the tailnet can't reach it.
+    network_mode: host
+    volumes:
+      # The directory, not the socket file: a tailscaled restart recreates the socket.
+      - /var/run/tailscale:/var/run/tailscale:ro
+      - notes:/data
+      # A directory, not the file: editors that save by renaming are still seen.
+      - ./config:/config
+
+volumes:
+  notes:

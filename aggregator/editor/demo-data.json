@@ -1,0 +1,1147 @@
+{
+  "layout": {
+    "tour": {
+      "skip": [
+        "Planka"
+      ]
+    },
+    "tabs": [
+      {
+        "name": "Homelab",
+        "cards": [
+          {
+            "id": "gpu-workstation",
+            "type": "gpu",
+            "at": [
+              1,
+              1
+            ],
+            "size": "2x3",
+            "src": "workstation"
+          },
+          {
+            "id": "gpu-server",
+            "type": "gpu",
+            "at": [
+              3,
+              1
+            ],
+            "size": "2x3",
+            "src": "server",
+            "slots": {
+              "line1": {
+                "value": "vram",
+                "as": "graph"
+              }
+            }
+          },
+          {
+            "id": "pool-tank",
+            "type": "pool",
+            "at": [
+              1,
+              4
+            ],
+            "size": "1x2",
+            "src": "tank"
+          },
+          {
+            "id": "pool-backup",
+            "type": "pool",
+            "at": [
+              2,
+              4
+            ],
+            "size": "1x2",
+            "src": "backup"
+          },
+          {
+            "id": "pool-boot-pool",
+            "type": "pool",
+            "at": [
+              3,
+              4
+            ],
+            "size": "1x2",
+            "src": "boot-pool"
+          },
+          {
+            "id": "nas-alerts",
+            "type": "nas-alerts",
+            "at": [
+              4,
+              4
+            ],
+            "size": "1x2"
+          },
+          {
+            "id": "dots",
+            "type": "dots",
+            "at": [
+              1,
+              6
+            ],
+            "size": "4x1",
+            "src": "both"
+          }
+        ]
+      },
+      {
+        "name": "server",
+        "cards": [
+          {
+            "id": "cpu",
+            "type": "graph",
+            "at": [
+              1,
+              1
+            ],
+            "size": "2x3",
+            "title": "server CPU",
+            "tap": "tab:Planka",
+            "value": "cpu@server:9100",
+            "unit": "%",
+            "warn": 80,
+            "bad": 95
+          },
+          {
+            "id": "temp",
+            "type": "gauge",
+            "at": [
+              3,
+              1
+            ],
+            "size": "1x2",
+            "title": "Temp",
+            "value": "temp@server:9100"
+          },
+          {
+            "id": "load",
+            "type": "number",
+            "at": [
+              4,
+              1
+            ],
+            "size": "1x2",
+            "title": "Load",
+            "value": "load@server:9100"
+          },
+          {
+            "id": "uptime",
+            "type": "number",
+            "at": [
+              3,
+              3
+            ],
+            "size": "1x1",
+            "title": "Up",
+            "value": "uptime@server:9100"
+          },
+          {
+            "id": "prometheus",
+            "type": "status",
+            "at": [
+              4,
+              3
+            ],
+            "size": "1x1",
+            "title": "Prometheus",
+            "value": {
+              "prometheus": "up{job=\"prometheus\"}"
+            }
+          },
+          {
+            "id": "ram",
+            "type": "bar",
+            "at": [
+              1,
+              4
+            ],
+            "size": "1x2",
+            "title": "RAM",
+            "value": "ram@server:9100"
+          },
+          {
+            "id": "disk",
+            "type": "bar",
+            "at": [
+              2,
+              4
+            ],
+            "size": "1x2",
+            "title": "Disk /",
+            "value": "disk:/@server:9100"
+          },
+          {
+            "id": "net",
+            "type": "graph",
+            "at": [
+              3,
+              4
+            ],
+            "size": "2x2",
+            "title": "Network",
+            "value": "net@server:9100"
+          },
+          {
+            "id": "dots-2",
+            "type": "dots",
+            "at": [
+              1,
+              6
+            ],
+            "size": "4x1",
+            "src": "both"
+          }
+        ]
+      },
+      {
+        "name": "Home",
+        "cards": [
+          {
+            "id": "living-room",
+            "type": "number",
+            "at": [
+              1,
+              1
+            ],
+            "size": "2x2",
+            "title": "Living room",
+            "value": {
+              "ha": "sensor.living_room_temperature"
+            }
+          },
+          {
+            "id": "humidity",
+            "type": "gauge",
+            "at": [
+              3,
+              1
+            ],
+            "size": "1x2",
+            "title": "Humidity",
+            "value": {
+              "ha": "sensor.living_room_humidity"
+            }
+          },
+          {
+            "id": "kitchen-light",
+            "type": "bar",
+            "at": [
+              4,
+              1
+            ],
+            "size": "1x1",
+            "title": "Kitchen",
+            "value": {
+              "ha": "light.kitchen",
+              "attr": "brightness"
+            },
+            "min": 0,
+            "max": 255
+          },
+          {
+            "id": "washer",
+            "type": "graph",
+            "at": [
+              1,
+              3
+            ],
+            "size": "2x2",
+            "title": "Washer",
+            "value": {
+              "ha": "sensor.washer_power"
+            }
+          },
+          {
+            "id": "tv",
+            "type": "status",
+            "at": [
+              3,
+              3
+            ],
+            "size": "2x1",
+            "title": "TV",
+            "value": {
+              "ha": "media_player.living_room_tv"
+            }
+          },
+          {
+            "id": "app-queue",
+            "type": "number",
+            "at": [
+              3,
+              4
+            ],
+            "size": "2x2",
+            "title": "Queue",
+            "value": {
+              "json": {
+                "url": "http://app.lan/api/status",
+                "path": "queue.depth"
+              }
+            },
+            "unit": "jobs"
+          },
+          {
+            "id": "app-status",
+            "type": "status",
+            "at": [
+              1,
+              5
+            ],
+            "size": "2x1",
+            "title": "App",
+            "value": {
+              "json": {
+                "url": "http://app.lan/api/status",
+                "path": "status",
+                "every": 60
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "Planka",
+        "cards": [
+          {
+            "id": "board",
+            "type": "board",
+            "at": [
+              1,
+              1
+            ],
+            "size": "4x6"
+          }
+        ]
+      },
+      {
+        "name": "Weather",
+        "cards": [
+          {
+            "id": "radar",
+            "type": "radar",
+            "at": [
+              1,
+              1
+            ],
+            "size": "4x6"
+          }
+        ]
+      }
+    ]
+  },
+  "sources": {
+    "card_env": [
+      "CARD_APP_TOKEN"
+    ],
+    "dots": [
+      "tailscale",
+      "services",
+      "both"
+    ],
+    "gpus": [
+      {
+        "name": "RTX 3060",
+        "src": "server"
+      },
+      {
+        "name": "RTX 4070",
+        "src": "workstation"
+      }
+    ],
+    "ha": {
+      "configured": true,
+      "needs": [],
+      "error": "",
+      "truncated": false,
+      "entities": [
+        {
+          "id": "binary_sensor.front_door",
+          "name": "Front door",
+          "state": "off",
+          "unit": "",
+          "attrs": [
+            "device_class"
+          ]
+        },
+        {
+          "id": "climate.living_room",
+          "name": "Living room",
+          "state": "heat",
+          "unit": "",
+          "attrs": [
+            "current_temperature",
+            "hvac_action",
+            "temperature"
+          ]
+        },
+        {
+          "id": "cover.garage_door",
+          "name": "Garage door",
+          "state": "closed",
+          "unit": "",
+          "attrs": [
+            "current_position"
+          ]
+        },
+        {
+          "id": "light.kitchen",
+          "name": "Kitchen",
+          "state": "on",
+          "unit": "",
+          "attrs": [
+            "brightness",
+            "color_temp_kelvin"
+          ]
+        },
+        {
+          "id": "media_player.living_room_tv",
+          "name": "Living room TV",
+          "state": "playing",
+          "unit": "",
+          "attrs": [
+            "source",
+            "volume_level"
+          ]
+        },
+        {
+          "id": "sensor.bedroom_temperature",
+          "name": "Bedroom temperature",
+          "state": "19.5",
+          "unit": "°C",
+          "attrs": [
+            "device_class"
+          ]
+        },
+        {
+          "id": "sensor.energy_today",
+          "name": "Energy today",
+          "state": "7.42",
+          "unit": "kWh",
+          "attrs": [
+            "device_class"
+          ]
+        },
+        {
+          "id": "sensor.fridge_power",
+          "name": "Fridge power",
+          "state": "92",
+          "unit": "W",
+          "attrs": [
+            "device_class"
+          ]
+        },
+        {
+          "id": "sensor.living_room_humidity",
+          "name": "Living room humidity",
+          "state": "48",
+          "unit": "%",
+          "attrs": [
+            "device_class"
+          ]
+        },
+        {
+          "id": "sensor.living_room_temperature",
+          "name": "Living room temperature",
+          "state": "21.5",
+          "unit": "°C",
+          "attrs": [
+            "device_class"
+          ]
+        },
+        {
+          "id": "sensor.office_co2",
+          "name": "Office CO2",
+          "state": "640",
+          "unit": "ppm",
+          "attrs": [
+            "device_class"
+          ]
+        },
+        {
+          "id": "sensor.outdoor_temperature",
+          "name": "Outdoor temperature",
+          "state": "8.5",
+          "unit": "°C",
+          "attrs": [
+            "device_class"
+          ]
+        },
+        {
+          "id": "sensor.phone_battery",
+          "name": "Phone battery",
+          "state": "76",
+          "unit": "%",
+          "attrs": [
+            "device_class"
+          ]
+        },
+        {
+          "id": "sensor.solar_power",
+          "name": "Solar power",
+          "state": "1840",
+          "unit": "W",
+          "attrs": [
+            "device_class"
+          ]
+        },
+        {
+          "id": "sensor.washer_power",
+          "name": "Washer power",
+          "state": "43.5",
+          "unit": "W",
+          "attrs": [
+            "device_class"
+          ]
+        },
+        {
+          "id": "switch.coffee_maker",
+          "name": "Coffee maker",
+          "state": "off",
+          "unit": "",
+          "attrs": []
+        }
+      ]
+    },
+    "limits": {
+      "cards": 24,
+      "id": 23,
+      "prom": 512,
+      "src": 27,
+      "tab_name": 15,
+      "tabs": 6,
+      "title": 27,
+      "unit": 8
+    },
+    "pools": [
+      {
+        "name": "backup"
+      },
+      {
+        "name": "boot-pool"
+      },
+      {
+        "name": "tank"
+      }
+    ],
+    "prometheus": {
+      "configured": true,
+      "needs": [],
+      "error": "",
+      "truncated": false,
+      "instances": [
+        "server:9100",
+        "workstation:9100"
+      ],
+      "mounts": [
+        "/",
+        "/mnt/data"
+      ],
+      "metrics": [
+        "go_goroutines",
+        "go_memstats_alloc_bytes",
+        "node_boot_time_seconds",
+        "node_context_switches_total",
+        "node_cpu_seconds_total",
+        "node_disk_io_time_seconds_total",
+        "node_disk_read_bytes_total",
+        "node_disk_written_bytes_total",
+        "node_entropy_available_bits",
+        "node_filefd_allocated",
+        "node_filesystem_avail_bytes",
+        "node_filesystem_files_free",
+        "node_filesystem_free_bytes",
+        "node_filesystem_size_bytes",
+        "node_forks_total",
+        "node_hwmon_temp_celsius",
+        "node_intr_total",
+        "node_load1",
+        "node_load15",
+        "node_load5",
+        "node_memory_Buffers_bytes",
+        "node_memory_Cached_bytes",
+        "node_memory_MemAvailable_bytes",
+        "node_memory_MemFree_bytes",
+        "node_memory_MemTotal_bytes",
+        "node_memory_SwapFree_bytes",
+        "node_memory_SwapTotal_bytes",
+        "node_network_receive_bytes_total",
+        "node_network_receive_errs_total",
+        "node_network_transmit_bytes_total",
+        "node_network_transmit_errs_total",
+        "node_network_up",
+        "node_procs_blocked",
+        "node_procs_running",
+        "node_time_seconds",
+        "node_uname_info",
+        "process_cpu_seconds_total",
+        "process_resident_memory_bytes",
+        "prometheus_tsdb_head_series",
+        "scrape_duration_seconds",
+        "up"
+      ]
+    },
+    "shortcuts": [
+      {
+        "arg": "",
+        "instance": "optional",
+        "name": "cpu",
+        "types": [
+          "number",
+          "gauge",
+          "bar",
+          "graph"
+        ]
+      },
+      {
+        "arg": "mount",
+        "instance": "required",
+        "name": "disk",
+        "types": [
+          "number",
+          "gauge",
+          "bar",
+          "graph"
+        ]
+      },
+      {
+        "arg": "",
+        "instance": "required",
+        "name": "load",
+        "types": [
+          "number",
+          "gauge",
+          "bar",
+          "graph"
+        ]
+      },
+      {
+        "arg": "",
+        "instance": "optional",
+        "name": "net",
+        "types": [
+          "graph"
+        ]
+      },
+      {
+        "arg": "",
+        "instance": "required",
+        "name": "ram",
+        "types": [
+          "number",
+          "gauge",
+          "bar",
+          "graph"
+        ]
+      },
+      {
+        "arg": "",
+        "instance": "optional",
+        "name": "temp",
+        "types": [
+          "number",
+          "gauge",
+          "bar",
+          "graph"
+        ]
+      },
+      {
+        "arg": "",
+        "instance": "required",
+        "name": "uptime",
+        "types": [
+          "number"
+        ]
+      }
+    ],
+    "slots": {
+      "as": [
+        "bar",
+        "graph",
+        "text"
+      ],
+      "default": {
+        "gauge": "temp",
+        "line1": {
+          "value": "vram",
+          "as": "bar"
+        },
+        "line2": [
+          "util",
+          "power"
+        ]
+      },
+      "gauge": [
+        "temp",
+        "util",
+        "vram",
+        "fan"
+      ],
+      "line1": [
+        "temp",
+        "util",
+        "vram",
+        "power",
+        "fan"
+      ],
+      "line2": [
+        "temp",
+        "util",
+        "vram",
+        "power",
+        "procs",
+        "fan"
+      ],
+      "no_bar": [
+        "power"
+      ]
+    },
+    "taps": [
+      "notifications",
+      "alert-details",
+      "none"
+    ],
+    "tour": {
+      "on": true,
+      "idle_min": 5,
+      "clock_s": 60,
+      "tab_s": 20,
+      "clock": true
+    },
+    "types": {
+      "bar": {
+        "default_tap": "none",
+        "general": true,
+        "sizes": [
+          "1x1",
+          "1x2",
+          "2x1"
+        ],
+        "src": "none",
+        "tap": true
+      },
+      "board": {
+        "default_tap": "none",
+        "general": false,
+        "sizes": [
+          "4x6"
+        ],
+        "src": "none",
+        "tap": false
+      },
+      "dots": {
+        "default_tap": "none",
+        "general": false,
+        "sizes": [
+          "4x1",
+          "2x1",
+          "4x2"
+        ],
+        "src": "dots",
+        "tap": true
+      },
+      "gauge": {
+        "default_tap": "none",
+        "general": true,
+        "sizes": [
+          "1x2",
+          "2x3"
+        ],
+        "src": "none",
+        "tap": true
+      },
+      "gpu": {
+        "default_tap": "none",
+        "general": false,
+        "sizes": [
+          "2x3",
+          "2x2",
+          "1x3",
+          "1x2",
+          "1x1"
+        ],
+        "src": "gpu",
+        "tap": true
+      },
+      "graph": {
+        "default_tap": "none",
+        "general": true,
+        "sizes": [
+          "2x2",
+          "2x3",
+          "4x2",
+          "4x3"
+        ],
+        "src": "none",
+        "tap": true
+      },
+      "nas-alerts": {
+        "default_tap": "alert-details",
+        "general": false,
+        "sizes": [
+          "1x2",
+          "1x1"
+        ],
+        "src": "none",
+        "tap": true
+      },
+      "number": {
+        "default_tap": "none",
+        "general": true,
+        "sizes": [
+          "1x1",
+          "1x2",
+          "2x2"
+        ],
+        "src": "none",
+        "tap": true
+      },
+      "pool": {
+        "default_tap": "none",
+        "general": false,
+        "sizes": [
+          "1x2",
+          "1x1",
+          "2x2"
+        ],
+        "src": "pool",
+        "tap": true
+      },
+      "radar": {
+        "default_tap": "none",
+        "general": false,
+        "sizes": [
+          "4x6"
+        ],
+        "src": "none",
+        "tap": false
+      },
+      "status": {
+        "default_tap": "none",
+        "general": true,
+        "sizes": [
+          "1x1",
+          "2x1"
+        ],
+        "src": "none",
+        "tap": true
+      }
+    },
+    "units": [
+      "%",
+      "°C",
+      "bytes",
+      "bps",
+      "s"
+    ]
+  },
+  "panel": {
+    "homelab": {
+      "gpu": [
+        {
+          "host": "workstation",
+          "n": "RTX 4070",
+          "up": true,
+          "temp": 69,
+          "util": 67,
+          "vram": 8000,
+          "vram_t": 12282,
+          "pwr": 163,
+          "procs": 1,
+          "st": "busy"
+        },
+        {
+          "host": "server",
+          "n": "RTX 3060",
+          "up": true,
+          "temp": 44,
+          "util": 2,
+          "vram": 7104,
+          "vram_t": 12288,
+          "pwr": 21,
+          "procs": 1,
+          "st": "loaded"
+        }
+      ],
+      "nas": {
+        "pools": [
+          {
+            "n": "tank",
+            "h": "ONLINE",
+            "ok": true,
+            "used": 9238,
+            "avail": 5662
+          },
+          {
+            "n": "backup",
+            "h": "ONLINE",
+            "ok": true,
+            "used": 5960,
+            "avail": 1490
+          },
+          {
+            "n": "boot-pool",
+            "h": "ONLINE",
+            "ok": true,
+            "used": 19,
+            "avail": 201
+          }
+        ],
+        "alerts": [
+          {
+            "lvl": "WARNING",
+            "msg": "Disk sdc in tank is running warm (52 °C)"
+          },
+          {
+            "lvl": "INFO",
+            "msg": "An update is available for \"jellyfin\" application."
+          }
+        ],
+        "info": 1
+      },
+      "stale": false,
+      "svc": [
+        {
+          "n": "home-assistant",
+          "on": true
+        },
+        {
+          "n": "jellyfin",
+          "on": true
+        },
+        {
+          "n": "pihole",
+          "on": true
+        },
+        {
+          "n": "grafana",
+          "on": true
+        }
+      ],
+      "ts": [
+        {
+          "n": "laptop",
+          "on": true
+        },
+        {
+          "n": "nas",
+          "on": true
+        },
+        {
+          "n": "phone",
+          "on": true
+        },
+        {
+          "n": "pi-hole",
+          "on": true
+        },
+        {
+          "n": "server",
+          "on": true
+        },
+        {
+          "n": "workstation",
+          "on": true
+        }
+      ],
+      "updated_at": 1795032000
+    },
+    "notify": {
+      "notes": [
+        {
+          "id": 1795032004,
+          "t": 1795032000,
+          "src": "Claude",
+          "msg": "deskpanel: Claude finished (14 min)",
+          "lvl": "info"
+        },
+        {
+          "id": 1795032003,
+          "t": 1795032000,
+          "src": "Claude",
+          "msg": "homelab: Claude needs your permission to use Bash",
+          "lvl": "warn",
+          "r": true
+        },
+        {
+          "id": 1795032002,
+          "t": 1795032000,
+          "src": "Uptime Kuma",
+          "msg": "jellyfin is back up (down 2 min)",
+          "lvl": "info",
+          "r": true
+        },
+        {
+          "id": 1795032001,
+          "t": 1795032000,
+          "src": "Grafana",
+          "msg": "HighCPU on server: 92% for 10 min",
+          "lvl": "warn",
+          "r": true
+        }
+      ],
+      "stale": false,
+      "updated_at": 1795032000
+    },
+    "planka": {
+      "boards": [
+        {
+          "id": "1001",
+          "n": "Homelab",
+          "can_done": true,
+          "cards": [
+            {
+              "id": "1101",
+              "n": "Replace the failing disk in backup",
+              "l": "Doing",
+              "due": 1795118400,
+              "lb": [
+                {
+                  "n": "Hardware",
+                  "c": 15218773
+                }
+              ]
+            },
+            {
+              "id": "1102",
+              "n": "Upgrade Jellyfin to 10.10",
+              "l": "To do",
+              "lb": [
+                {
+                  "n": "Software",
+                  "c": 1088960
+                }
+              ]
+            },
+            {
+              "id": "1103",
+              "n": "Set up offsite backups — rclone + B2",
+              "l": "Done",
+              "d": true
+            }
+          ]
+        },
+        {
+          "id": "1002",
+          "n": "Weekend",
+          "can_done": true,
+          "cards": [
+            {
+              "id": "1201",
+              "n": "Fix the garden gate",
+              "l": "To do",
+              "due": 1794945600,
+              "lb": [
+                {
+                  "n": "House",
+                  "c": 9876306
+                }
+              ]
+            },
+            {
+              "id": "1202",
+              "n": "Print a stand for the deskpanel",
+              "l": "Doing",
+              "lb": [
+                {
+                  "n": "Making",
+                  "c": 8292039
+                }
+              ]
+            },
+            {
+              "id": "1203",
+              "n": "Order filament — PETG, black",
+              "l": "To do",
+              "lb": [
+                {
+                  "n": "Shopping",
+                  "c": 15569443
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "stale": false,
+      "updated_at": 1795032000
+    }
+  },
+  "cards": {
+    "cards": {
+      "app-queue": {
+        "v": "23.9 jobs"
+      },
+      "app-status": {
+        "v": "up"
+      },
+      "cpu": {
+        "st": "warn",
+        "v": "87 %",
+        "g": [
+          "SRRRRSUWYaaaZZZabbccccdfhjklkjiijklmnnopqstuvutsssuvxyzz0123"
+        ],
+        "th": 50
+      },
+      "disk": {
+        "v": "66 %",
+        "f": 0.66,
+        "sub": "330 / 500 GB"
+      },
+      "gpu-server": {
+        "g": [
+          "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+        ]
+      },
+      "humidity": {
+        "v": "48 %",
+        "f": 0.48
+      },
+      "kitchen-light": {
+        "v": "180",
+        "f": 0.706
+      },
+      "living-room": {
+        "v": "22°"
+      },
+      "load": {
+        "v": "3.07",
+        "sub": "of 8 cores"
+      },
+      "net": {
+        "v": "0.03 Mb/s",
+        "v2": "0.04 Mb/s",
+        "g": [
+          "FEGJMNORXfnrphWKDBDJORTVYelpohWKBABHPUXYaejmmgWKBAAGPXbcdegj",
+          "SAAJQNNcv1touwiOFKNFALfqnmx5xeTVUHAAQbabp54qhjiTBAJPMMau1tpu"
+        ]
+      },
+      "prometheus": {
+        "v": "up"
+      },
+      "ram": {
+        "v": "12 %",
+        "f": 0.12,
+        "sub": "9.1 / 76 GB"
+      },
+      "temp": {
+        "v": "50°",
+        "f": 0.5
+      },
+      "tv": {
+        "v": "up"
+      },
+      "uptime": {
+        "v": "50 d"
+      },
+      "washer": {
+        "v": "43.5 W",
+        "g": [
+          "fdeecekt01zz0ztkdbdffflu131yyxskcacghimu242ywvrjcZbgjknu253x"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>deskpanel screen editor</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="editor.css">
+<script type="module" src="editor.js"></script>
+</head>
+<body>
+
+<div id="loading" role="status"><p id="loadmsg">Loading…</p><button class="b" id="retry" type="button" hidden>Try again</button></div>
+
+<div id="gate" hidden>
+  <form id="gateform" autocomplete="off">
+    <h1>deskpanel screen editor</h1>
+    <p class="dim lead">Arrange the panel's tabs and cards.</p>
+    <label for="pw">Editor password</label>
+    <div class="row"><input id="pw" type="password" aria-describedby="gateerr"><button class="btn" id="unlock" type="submit">Unlock</button></div>
+    <p class="err" id="gateerr" role="alert"></p>
+    <p class="hint">The password is <code>EDITOR_TOKEN</code> in the server's <code>.env</code>. This browser remembers it until you press Lock.</p>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <div id="demobar" hidden>A demo with made-up data: nothing here reaches a server. Save downloads the <code>layout.json</code> you would put in <code>aggregator/config/</code>.</div>
+  <div id="top">
+    <h1>deskpanel <small>screen editor</small></h1>
+    <div class="seg" role="group" aria-label="View">
+      <button type="button" id="vScreens" aria-pressed="true">Screens</button>
+      <button type="button" id="vSettings" aria-pressed="false">Tour &amp; clock</button>
+    </div>
+    <span class="gap"></span>
+    <span id="pill" role="status">Saved</span>
+    <button class="b" id="undo" type="button" title="Ctrl+Z">Undo</button>
+    <button class="b" id="redo" type="button" title="Ctrl+Y">Redo</button>
+    <button class="b" id="revert" type="button" title="Back to the file as it is on the server">Revert</button>
+    <button class="b" id="viewjson" type="button">View JSON</button>
+    <button class="b" id="lock" type="button">Lock</button>
+    <button class="btn" id="save" type="button" title="Ctrl+S">Save</button>
+  </div>
+  <div id="refused" role="alert" hidden></div>
+  <div id="info" role="status" hidden></div>
+
+  <div id="screens">
+    <aside class="side" id="palette" aria-label="Add card">
+      <h2>Add card</h2>
+      <p class="hint pal-hint">Click to drop it in the first free spot, or drag it onto the grid.</p>
+      <div id="pal"></div>
+    </aside>
+    <section id="stage" aria-label="Panel preview">
+      <div id="fit">
+        <div id="scalebox">
+          <div id="panel">
+            <div id="sb"><b id="sbtime"></b><span id="sbdate"></span><span class="push dim">preview: resembles the panel, isn't pixel-true</span></div>
+            <div id="grid" tabindex="-1" role="group" aria-label="Cards on this tab"></div>
+            <div id="tb" role="tablist" aria-label="Tabs"></div>
+          </div>
+        </div>
+      </div>
+      <div id="tabctl"></div>
+      <p id="hint" role="status" aria-live="polite"></p>
+    </section>
+    <aside class="side" id="insp" aria-label="Inspector"></aside>
+  </div>
+
+  <div id="settings" hidden></div>
+</div>
+
+<aside id="drawer" hidden aria-label="layout.json">
+  <header><h2>The layout as JSON</h2><button class="b" id="copy" type="button">Copy</button><button class="b" id="download" type="button">Download</button><button class="b" id="closejson" type="button">Close</button></header>
+  <div class="scroll">
+    <span class="lab">config/layout.json</span>
+    <pre id="jsonout" tabindex="0" aria-label="layout.json"></pre>
+  </div>
+</aside>
+<dialog id="dlg" aria-labelledby="dlgmsg"><p id="dlgmsg"></p><div class="row"><button class="b" id="dlgno" type="button">Cancel</button><button class="btn" id="dlgyes" type="button">OK</button></div></dialog>
+<div id="toast" role="status" hidden></div>
+</body>
+</html>

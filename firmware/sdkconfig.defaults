@@ -1,0 +1,51 @@
+# --- ESP32-S3-WROOM-1-N16R8: 16 MB QIO flash, 8 MB octal PSRAM (Waveshare 4.3B demo) ---
+CONFIG_IDF_TARGET="esp32s3"
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+# Lets big static buffers (EXT_RAM_BSS_ATTR) live in PSRAM, keeping internal RAM for Wi-Fi/DMA.
+CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY=y
+
+# --- RGB panel without drift under Wi-Fi/flash (Waveshare demo + Espressif LCD FAQ) ---
+# Run code and rodata from PSRAM so flash writes don't stall the bounce-buffer refill.
+CONFIG_SPIRAM_FETCH_INSTRUCTIONS=y
+CONFIG_SPIRAM_RODATA=y
+CONFIG_ESP32S3_DATA_CACHE_LINE_64B=y
+CONFIG_FREERTOS_HZ=1000
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+CONFIG_LCD_RGB_ISR_IRAM_SAFE=y
+# Keep Wi-Fi/LWIP buffers in internal RAM: contending for PSRAM bandwidth causes drift.
+# CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP is not set
+
+# --- LVGL 9 ---
+CONFIG_LV_COLOR_DEPTH_16=y
+CONFIG_LV_USE_CLIB_MALLOC=y
+CONFIG_LV_USE_CLIB_STRING=y
+CONFIG_LV_USE_CLIB_SPRINTF=y
+CONFIG_LV_ATTRIBUTE_FAST_MEM_USE_IRAM=y
+CONFIG_LV_FONT_MONTSERRAT_12=y
+CONFIG_LV_FONT_MONTSERRAT_14=y
+CONFIG_LV_FONT_MONTSERRAT_16=y
+CONFIG_LV_FONT_MONTSERRAT_20=y
+CONFIG_LV_FONT_MONTSERRAT_28=y
+CONFIG_LV_FONT_DEFAULT_MONTSERRAT_20=y
+CONFIG_LV_THEME_DEFAULT_DARK=y
+# User text (Planka) renders from the embedded Montserrat TTF: full Latin + punctuation.
+CONFIG_LV_USE_TINY_TTF=y
+CONFIG_LV_TINY_TTF_CACHE_GLYPH_CNT=256
+CONFIG_LV_USE_LOG=y
+CONFIG_LV_LOG_LEVEL_WARN=y
+CONFIG_LV_LOG_PRINTF=y
+
+# --- Restart on a hang: the UI and net tasks feed the task watchdog (ui.c tick, net.c net_task). 120 s without a
+# feed, or an idle task starved that long, panics and reboots: "crash (task watchdog)" in boot.log and the bell.
+# Kconfig caps the timeout at 60 s (a bigger value silently falls back to 5 s): main.c sets the 120 s at boot. ---
+CONFIG_ESP_TASK_WDT_PANIC=y
+CONFIG_ESP_TASK_WDT_TIMEOUT_S=60

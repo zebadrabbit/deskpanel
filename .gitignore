@@ -1,0 +1,36 @@
+# secrets: never commit
+.env
+**/secrets.h
+
+# build output
+.pio/
+build/
+build-release/
+dist/
+# the flasher page's firmware, manifest and screenshots: firmware/release.sh puts them there
+web/firmware/
+web/manifest.json
+web/img/
+# the screen editor's public demo: web/build-editor.sh copies it from aggregator/editor/
+web/editor/
+managed_components/
+__pycache__/
+firmware/sdkconfig
+firmware/sdkconfig.*
+!firmware/sdkconfig.defaults
+
+# editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.superpowers/
+
+# owner's card layout (see aggregator/layout.example.json)
+aggregator/config/layout.json
+aggregator/config/layout.json.bak
+# the brand kit: kept private (the firmware has its own copy of the startup logo)
+brand/
+# local scratch, never for the repo
+backup_do_not_repo/
+Claude outputs/

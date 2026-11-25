@@ -1,0 +1,17 @@
+# GPU agent as a TrueNAS SCALE Custom App (25.04+). NVIDIA is the default Docker runtime once
+# GPU drivers are installed, so the runtime injects nvidia-smi into this stock image.
+# Put dist/deskpanel-linux-amd64 at <dataset>/deskpanel (chmod 755) first, then either
+#   Apps > Discover Apps > Custom App > Install via YAML, or
+#   midclt call -j app.create '{"app_name":"deskpanel-agent","custom_app":true,"custom_compose_config_string":"<this file>"}'
+services:
+  agent:
+    image: debian:stable-slim # glibc for the injected nvidia-smi; the agent itself is static
+    command: ["/opt/deskpanel/deskpanel", "agent", ":9835"]
+    restart: unless-stopped
+    ports:
+      - "9835:9835"
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: utility
+    volumes:
+      - /mnt/<pool>/deskpanel:/opt/deskpanel:ro # the dataset holding the deskpanel binary
