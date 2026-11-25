@@ -46,7 +46,8 @@ rendering the aggregator's demo data. More of them are in [docs/screen.md](docs/
 
 ## What you need
 
-- The Waveshare **ESP32-S3-Touch-LCD-4.3B** (the **B** variant) and a USB-C cable.
+- The Waveshare **ESP32-S3-Touch-LCD-4.3B** (the **B** variant) and a USB-C cable. It is sold by Waveshare
+  and on Amazon and AliExpress; [what to buy, and other boards](docs/hardware.md).
 - A microSD card, FAT32.
 - A Linux machine with Docker (amd64 or arm64) for the aggregator, and a 2.4 GHz Wi-Fi network from which the
   panel can reach it.
@@ -117,6 +118,7 @@ Notifications                  ─┘                    POST .../cards/{id}/don
 
 | Page | What's in it |
 |------|--------------|
+| [The hardware](docs/hardware.md) | What to buy and where, what else you need, why this exact board, what a port to another board takes. |
 | [Getting started](docs/getting-started.md) | Both install paths, first boot and the startup screen, `settings.txt`, the `.env` essentials. |
 | [What's on the screen](docs/screen.md) | Every tile, colour and badge. Notifications, the idle tour, the astronomical clock, the weather. |
 | [layout.json](docs/layout.md) | Your own tabs by hand: the grid, card types and sizes, taps, limits, the `tour` block. |
@@ -151,7 +153,7 @@ Tested on one board, the Waveshare 4.3B below. Weather alerts are US only.
 
 Waveshare ESP32-S3-Touch-LCD-4.3B: ESP32-S3-WROOM-1-N16R8 (16 MB flash, 8 MB PSRAM), 800×480 RGB IPS,
 GT911 capacitive touch, CH422G IO expander (backlight on/off, touch reset, SD CS), PCF85063A RTC,
-microSD slot.
+microSD slot. Where to get it and what the firmware relies on: [docs/hardware.md](docs/hardware.md).
 
 ## Secrets
 

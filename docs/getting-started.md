@@ -30,7 +30,7 @@ Rather build everything yourself? See [Build your own](#build-your-own).
 
 The alternative to [the easy way](#install-the-easy-way): build the firmware with your values built in, and the
 aggregator image locally. You need:
-- the Waveshare **ESP32-S3-Touch-LCD-4.3B** (the **B** variant)
+- the Waveshare **ESP32-S3-Touch-LCD-4.3B** (the **B** variant; [what to buy](hardware.md))
 - a Linux server with **Docker**
 - optionally: TrueNAS SCALE 25.04+, NVIDIA GPUs, Tailscale, Planka 2.x and Claude Code. Each part is
   optional: leave its URL empty and that collector is skipped.

@@ -4,6 +4,7 @@ New here? Start with [Getting started](getting-started.md). The [front page](../
 
 | Page | What's in it |
 |------|--------------|
+| [The hardware](hardware.md) | What to buy and where, the SD card, cable and Wi-Fi it needs, what the firmware relies on, other boards. |
 | [Getting started](getting-started.md) | Install from the flasher page and the prebuilt image, or build your own. First boot and the startup screen, `settings.txt`, the `.env` essentials. |
 | [What's on the screen](screen.md) | The status bar, the Homelab, Planka and Weather pages, notifications, the idle tour and the astronomical clock, setting up the weather. |
 | [Your own tabs: layout.json](layout.md) | The layout file, the grid, card types and sizes, taps, limits, what happens when you save, the `tour` block. |
