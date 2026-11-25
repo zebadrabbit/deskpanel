@@ -10,11 +10,13 @@ would take to run it on something else.
 piece, powered and flashed over USB-C.
 
 - **Where:** Waveshare sells it directly, and through its storefronts on Amazon and AliExpress. The author's
-  came from Amazon. Search for the exact name, `ESP32-S3-Touch-LCD-4.3B`.
+  came from [this Amazon listing](https://www.amazon.com/dp/B0DD6VLH1Y) for about $55 in 2026. Prices and
+  listings change, so if that one is gone, search for the exact name, `ESP32-S3-Touch-LCD-4.3B`. It is a
+  common board and easy to find.
 - **Check the B.** Waveshare also makes an `ESP32-S3-Touch-LCD-4.3` without the B. It is a different board
   (see [Other boards](#other-boards)), and listings for the two look alike.
 - **Manufacturer's page**, with the schematic and the demo code:
-  [waveshare.com/wiki/ESP32-S3-Touch-LCD-4.3B](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-4.3B).
+  [docs.waveshare.com/ESP32-S3-Touch-LCD-4.3B](https://docs.waveshare.com/ESP32-S3-Touch-LCD-4.3B).
 
 You also need:
 
@@ -46,10 +48,14 @@ This is why the board is named so exactly. `firmware/main/board.c` and the UI as
 
 The backlight is on or off only. This board has no dimming path, so the panel cannot dim at night.
 
+**The connectors on the back are not used yet.** The 4.3B also brings out RS485, CAN and spare IO, which is part
+of why the project stays on this board: there are plans for them, and they are not finished.
+
 ## Other boards
 
-**Nothing else is supported or tested today.** The flasher page's firmware is built for the 4.3B and will not
-drive a different board.
+**Nothing else is supported or tested today, and the author knows of no drop-in replacement.** The flasher
+page's firmware is built for the 4.3B and will not drive a different board. At about $55 the 4.3B is cheap
+enough that buying it is less work than porting.
 
 Running deskpanel on another board is a port, and its size depends on how far the board is from this one:
 

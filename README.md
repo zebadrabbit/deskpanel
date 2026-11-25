@@ -46,8 +46,8 @@ rendering the aggregator's demo data. More of them are in [docs/screen.md](docs/
 
 ## What you need
 
-- The Waveshare **ESP32-S3-Touch-LCD-4.3B** (the **B** variant) and a USB-C cable. It is sold by Waveshare
-  and on Amazon and AliExpress; [what to buy, and other boards](docs/hardware.md).
+- The Waveshare **ESP32-S3-Touch-LCD-4.3B** (the **B** variant) and a USB-C cable. About $55, sold by
+  Waveshare and on Amazon and AliExpress: [what to buy, and other boards](docs/hardware.md).
 - A microSD card, FAT32.
 - A Linux machine with Docker (amd64 or arm64) for the aggregator, and a 2.4 GHz Wi-Fi network from which the
   panel can reach it.
