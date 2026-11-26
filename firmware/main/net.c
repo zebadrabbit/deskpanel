@@ -94,10 +94,12 @@ static uint32_t panel_seq;
 
 // POSTs the UI asks for: UI -> net task; results of card dones: net task -> UI.
 typedef struct {
-    char kind;   // 'd' = mark card done, 'r' = notes read up to id, 'a' = fetch weather alert id
-    char id[24];
+    char kind;    // 'd' = mark card done, 'r' = notes read up to id, 'a' = fetch weather alert id,
+    char id[24];  // 'l' = light card id + arg, 'p' = profile card id + arg
+    char arg[16]; // 'l' / 'p': the action ("toggle", "bri/15", "color/blue", "apply", "save")
 } req_t;
-static QueueHandle_t req_q, result_q;
+static QueueHandle_t req_q, result_q, act_q; // act_q: results of 'l' and 'p' (result_q is the board card's)
+static int64_t cx_soon_us; // net task: poll /cards again at this time (a light or profile POST just went out); 0 none
 
 // HTTP response capture (net task only): on_http appends to buf, keeping len below cap.
 typedef struct {
@@ -670,27 +672,31 @@ static void load_sky_copy(void)
     }
 }
 
-static bool request(char kind, const char *id)
+static bool request(char kind, const char *id, const char *arg)
 {
     req_t r = {.kind = kind};
     strlcpy(r.id, id, sizeof r.id);
+    strlcpy(r.arg, arg, sizeof r.arg);
     return req_q && xQueueSend(req_q, &r, 0) == pdTRUE;
 }
 
-bool net_mark_done(const char *card_id) { return request('d', card_id); }
+bool net_mark_done(const char *card_id) { return request('d', card_id, ""); }
+bool net_light(const char *card_id, const char *action) { return request('l', card_id, action); }
+bool net_profile(const char *card_id, const char *action) { return request('p', card_id, action); }
+bool net_act_result(net_act_t *out) { return act_q && xQueueReceive(act_q, out, 0) == pdTRUE; }
 
 bool net_mark_read(int upto)
 {
     char id[16];
     snprintf(id, sizeof id, "%d", upto);
-    return request('r', id);
+    return request('r', id, "");
 }
 
 bool net_fetch_alert(int n)
 {
     char id[16];
     snprintf(id, sizeof id, "%d", n);
-    return request('a', id);
+    return request('a', id, "");
 }
 
 bool net_done_result(net_done_t *out)
@@ -1253,6 +1259,47 @@ void net_log_heap(const char *why)
              (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024));
 }
 
+// One request from the UI (a tap): the POST or alert fetch, and its result onto the queue its card reads.
+static void serve(const req_t *q, bool up)
+{
+    feed(); // taps can keep the caller's loop going (with Wi-Fi down they post nothing)
+    if (q->kind == 'a') {
+        fetch_alert(atoi(q->id), up);
+        return;
+    }
+    char path[80]; // the longest: /api/v1/profiles/ + 23 + / + 15
+    if (q->kind == 'l' || q->kind == 'p') {
+        snprintf(path, sizeof path, "/api/v1/%s/%s/%s", q->kind == 'l' ? "lights" : "profiles", q->id, q->arg);
+    } else {
+        snprintf(path, sizeof path, q->kind == 'd' ? "/api/v1/planka/cards/%s/done" : "/api/v1/notify/%s/read", q->id);
+    }
+    int status = up ? http(HTTP_METHOD_POST, path, NULL, NULL) : -1;
+    if (q->kind == 'd') {
+        net_done_t r = {.status = status};
+        strlcpy(r.card_id, q->id, sizeof r.card_id);
+        xQueueSend(result_q, &r, 0);
+    } else if (q->kind != 'r') {
+        net_act_t r = {.status = status};
+        strlcpy(r.card_id, q->id, sizeof r.card_id);
+        strlcpy(r.action, q->arg, sizeof r.action);
+        xQueueSend(act_q, &r, 0); // full (nobody reading): dropped, and the card's own 10 s timeout tidies up
+        cx_soon_us = esp_timer_get_time() + 1500 * 1000LL; // the aggregator has re-read the light by then
+    }
+}
+
+// Serve whatever taps are waiting, without waiting for one: called between a pass's requests, so a tap waits behind
+// one request at most, not the whole pass. True if there was one (the pass is then followed by a short wait).
+static bool serve_waiting(bool up)
+{
+    req_t q;
+    bool any = false;
+    while (xQueueReceive(req_q, &q, 0) == pdTRUE) {
+        serve(&q, up);
+        any = true;
+    }
+    return any;
+}
+
 static void *psram_malloc(size_t n) { return heap_caps_malloc(n, MALLOC_CAP_SPIRAM); }
 
 static void net_task(void *arg)
@@ -1291,8 +1338,10 @@ static void net_task(void *arg)
         st.rssi = rssi;
         taskEXIT_CRITICAL(&lock);
 
+        bool soon = false; // a tap was served during the pass: come back in 1.5 s, as after one served while waiting
         if (up) {
             bool ok = poll_panel(c);
+            soon |= serve_waiting(up);
             if (ok) {
                 taskENTER_CRITICAL(&lock);
                 fetched_us = esp_timer_get_time();
@@ -1301,20 +1350,27 @@ static void net_task(void *arg)
                 if (esp_timer_get_time() >= wx_due_us) {
                     wx_due_us = esp_timer_get_time() + WX_POLL_MS * 1000LL;
                     ok = poll_weather(w);
+                    soon |= serve_waiting(up);
                 }
                 if (ok && (wx_status == 200 || wx_status == 304)) { // wx_status: this task writes it
                     fetch_frame(); // one per pass, so taps never wait behind a whole set
                     publish_frames();
+                    soon |= serve_waiting(up);
                 }
                 if (ok && esp_timer_get_time() >= lx_due_us) {
                     lx_due_us = esp_timer_get_time() + LX_POLL_MS * 1000LL;
                     ok = poll_layout(l);
+                    soon |= serve_waiting(up);
                 }
                 // Cards go last, on their own due time and back-off, so a slow /cards delays no other poll.
-                if (esp_timer_get_time() >= cx_due_us) {
+                // A light or profile POST brings them forward once (cx_soon_us), whatever the back-off says.
+                bool cx_soon = cx_soon_us && esp_timer_get_time() >= cx_soon_us;
+                if (cx_soon || esp_timer_get_time() >= cx_due_us) {
+                    cx_soon_us = cx_soon ? 0 : cx_soon_us;
                     bool cok = poll_cards(x);
                     cx_back_ms = cok ? POLL_MS : (cx_back_ms * 2 < POLL_MAX_MS ? cx_back_ms * 2 : POLL_MAX_MS);
                     cx_due_us = esp_timer_get_time() + (cx_status == 404 ? 60000 : cx_back_ms) * 1000LL;
+                    soon |= serve_waiting(up);
                 }
                 // Astro goes after the weather poll, the frame fetch and the cards, on its own due time and back-off
                 // (never ok/wait_ms), so a slow /astro or sky download delays no other poll by more than its own time.
@@ -1322,6 +1378,7 @@ static void net_task(void *arg)
                     bool aok = poll_astro(a);
                     ax_back_ms = aok ? POLL_MS : (ax_back_ms * 2 < POLL_MAX_MS ? ax_back_ms * 2 : POLL_MAX_MS);
                     ax_due_us = esp_timer_get_time() + (!aok ? ax_back_ms : ax_status == 404 ? AX_NOLOC_MS : AX_POLL_MS) * 1000LL;
+                    soon |= serve_waiting(up);
                     fetch_sky();
                 }
             }
@@ -1329,22 +1386,10 @@ static void net_task(void *arg)
         }
         // Sleep until the next poll, but serve taps (card done, notes read, alert text) the moment they arrive.
         req_t q;
-        TickType_t wait = pdMS_TO_TICKS(up ? wait_ms : 1000);
+        TickType_t wait = pdMS_TO_TICKS(soon ? 1500 : up ? wait_ms : 1000);
         feed(); // the wait is at most POLL_MAX_MS (30 s)
         while (xQueueReceive(req_q, &q, wait) == pdTRUE) {
-            feed(); // taps can keep this loop going (with Wi-Fi down they post nothing)
-            if (q.kind == 'a') {
-                fetch_alert(atoi(q.id), up);
-            } else {
-                char path[80];
-                snprintf(path, sizeof path, q.kind == 'd' ? "/api/v1/planka/cards/%s/done" : "/api/v1/notify/%s/read", q.id);
-                int status = up ? http(HTTP_METHOD_POST, path, NULL, NULL) : -1;
-                if (q.kind == 'd') {
-                    net_done_t r = {.status = status};
-                    strlcpy(r.card_id, q.id, sizeof r.card_id);
-                    xQueueSend(result_q, &r, 0);
-                }
-            }
+            serve(&q, up);
             wait = pdMS_TO_TICKS(1500); // then re-poll soon so the change comes back in the data
         }
     }
@@ -1356,6 +1401,7 @@ void net_start(void)
     wx_mutex = xSemaphoreCreateMutex();
     req_q = xQueueCreate(8, sizeof(req_t));
     result_q = xQueueCreate(4, sizeof(net_done_t));
+    act_q = xQueueCreate(8, sizeof(net_act_t));
     time_t t;
     if (board_rtc_read(&t)) {
         settimeofday(&(struct timeval){.tv_sec = t}, NULL);

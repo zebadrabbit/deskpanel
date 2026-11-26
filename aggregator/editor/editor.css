@@ -166,6 +166,18 @@ button:disabled { opacity: .4; cursor: not-allowed; }
   radial-gradient(380px 240px at 52% 50%, #3fb95088, transparent 72%),
   radial-gradient(200px 130px at 22% 70%, #3fb95055, transparent 70%), #101826; }
 .radar-label { position: relative; margin: auto; color: #e8ebf0; }
+/* a light's dot takes its colour from `color` (set per card); a profile is a button filling its tile */
+.lrow { display: flex; align-items: center; gap: 10px; height: 100%; min-width: 0; position: relative; }
+.lfill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; color: #d8b56a; background: currentColor; opacity: .28; }
+.lcol { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.lcol.tall { position: relative; height: 100%; gap: 10px; }
+.lcol.tall .lrow { height: auto; }
+.ldot { width: 18px; height: 18px; border-radius: 50%; flex: none; color: #d8b56a; background: #3a4150; }
+.ldot.on { background: currentColor; box-shadow: 0 0 12px -2px currentColor; }
+.ldot.lg { width: 52px; height: 52px; margin: 0 8px 0 4px; }
+.pbtn { position: absolute; inset: 4px; border-radius: 6px; background: #1c2431; border: 1px solid #364052; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 8px; font-size: 17px; }
+.pbtn span { max-width: 100%; }
+.pbtn.unsaved { color: #7d8590; border-style: dashed; background: transparent; }
 
 /* ---------- inspector bits ---------- */
 .pick { max-height: 168px; overflow-y: auto; border: 1px solid var(--edge); border-radius: 8px; margin-top: 6px; background: #050810; }

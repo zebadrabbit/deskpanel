@@ -18,6 +18,7 @@ const WHAT = {
   dots: 'Tailscale and service dots', board: 'The Planka boards. Fills a tab', radar: 'The weather radar. Fills a tab',
   number: 'One number, with a sub-line', gauge: 'An arc filled to the value', bar: 'A bar filled to the value',
   graph: 'The last hour, one or two lines', status: 'A dot: up or down',
+  light: 'A light or switch: tap to toggle', profile: 'A button that sets every light',
 };
 const GLYPH = {
   gpu: '<rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="9" cy="12" r="2.5"/><path d="M15 10h3M15 14h3"/>',
@@ -31,7 +32,14 @@ const GLYPH = {
   bar: '<rect x="3" y="9" width="18" height="6" rx="3"/><path d="M5 12h8" stroke-width="3"/>',
   graph: '<path d="M3 17l5-6 4 3 4-7 5 4"/><path d="M3 20h18"/>',
   status: '<circle cx="12" cy="12" r="5" fill="currentColor"/>',
+  light: '<path d="M12 3a6 6 0 00-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0012 3z"/><path d="M9.5 19h5M10.5 21.5h3"/>',
+  profile: '<path d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h10M18 17h2"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="16" cy="17" r="2"/>',
   other: '<rect x="4" y="4" width="16" height="16" rx="3"/>',
+};
+// What the panel does with a touch on a card that handles its own.
+const OWN_TAP = {
+  light: 'Tap toggles it. Hold for brightness and colour.',
+  profile: 'Tap applies it to every light card. Hold the button on the panel to save the current lights.',
 };
 const TAP_WORDS = {none: 'does nothing', notifications: 'opens the notification history', 'alert-details': 'opens every NAS alert in full'};
 const SLOT_WORDS = {temp: 'temperature', util: 'utilisation', vram: 'VRAM', power: 'power', fan: 'fan', procs: 'processes'};
@@ -59,6 +67,11 @@ const source = () => M.toSource(S, src);
 const dirty = () => JSON.stringify(source()) !== saved;
 const prom = () => ({instances: [], mounts: [], metrics: [], ...src.prometheus});
 const ha = () => ({entities: [], ...src.ha});
+// ents is the entities a card of this type may read: all of them, or the domains the server lists for it (a light).
+const ents = type => { const d = T(type).entity; return d ? ha().entities.filter(e => d.includes(e.id.split('.')[0])) : ha().entities; };
+const titled = type => T(type).general || type === 'light' || type === 'profile';
+// fitTitle is an entity's name cut to the title's byte limit, so a filled-in title is one the server takes.
+function fitTitle(s) { s = String(s ?? ''); while (M.bytes(s) > lim('title')) s = s.slice(0, -1); return s; }
 const byArea = (a, b) => M.wh(a)[0] * M.wh(a)[1] - M.wh(b)[0] * M.wh(b)[1];
 
 // ---------- undo ----------
@@ -169,6 +182,14 @@ function place(el, col, row, w, h) {
 function styleBoxes(root) {
   for (const el of root.querySelectorAll('[data-box]')) place(el, ...el.dataset.box.split(',').map(Number));
   for (const el of root.querySelectorAll('[data-pct]')) el.style.width = el.dataset.pct + '%';
+  for (const el of root.querySelectorAll('[data-col]')) el.style.color = '#' + el.dataset.col;
+  // a tile redrawn in place (a resize drag) gets its own edge colour back unless its light is still on
+  for (const pc of [root.closest('.pc'), ...root.querySelectorAll('.pc')]) if (pc) pc.style.borderColor = '';
+  for (const el of root.querySelectorAll('[data-fill]')) {   // a lit light: the fill's height, and its colour on the tile's edge
+    el.style.height = el.dataset.fill + '%';
+    const pc = el.closest('.pc');
+    if (pc) pc.style.borderColor = '#' + (el.dataset.col ?? 'd8b56a');
+  }
   for (const el of root.querySelectorAll('[data-d]')) {
     const d = +el.dataset.d;
     el.style.width = el.style.height = d + 'px';
@@ -271,9 +292,28 @@ function genBody(c, w, h) {
   return `<div class="hd"><span class="tt">${t}</span><span>${none ? '' : labels}</span></div>` + (two && !none ? '' : `<div class="big ${L}">${val}</div>`) +
     (sub ? `<div class="sub">${sub}</div>` : '') + spark(lines, o.th);
 }
+// A light: the dot in the light's colour (brass when on without one, muted when off), the title, the state. A card
+// the server has no value for yet (new, or its entity changed) shows the entity's state from the picker's list.
+function lightBody(c, w, h) {
+  let o = reading(c);
+  if (o.v == null && o.st == null) { const e = ha().entities.find(x => x.id === c.value?.ha); o = e ? {v: e.state, f: e.state === 'on' ? 1 : 0} : {st: 'none', sub: 'Save to see it'}; }
+  const none = o.st === 'none', on = !none && o.f > 0, col = on && /^[0-9a-f]{6}$/i.test(o.v2 ?? '') ? ` data-col="${o.v2}"` : '';
+  const dot = `<i class="ldot${on ? ' on' : ''}${h === 2 ? ' lg' : ''}"${col}></i>`, t = esc(c.title || c.id), st = esc(none ? o.sub ?? '' : o.v ?? '');
+  // brightness fills the tile from the bottom, behind the text, in the bulb's colour; the tile's edge takes it too
+  const fill = on ? `<i class="lfill" data-fill="${clamp(o.f * 100).toFixed(1)}"${col}></i>` : '';
+  if (h === 2 && w === 1) return `${fill}<div class="lcol tall"><div class="lrow"><i class="ldot${on ? ' on' : ''}"${col}></i><span class="mid ell">${t}</span></div><span class="${none ? 'sub' : on ? 'big' : 'big sub'}">${st}</span></div>`;
+  if (h === 2) return `${fill}<div class="lrow">${dot}<div class="lcol"><span class="mid ell">${t}</span><span class="${none ? 'sub' : on ? 'big' : 'big sub'}">${st}</span></div></div>`;
+  return `${fill}<div class="lrow">${dot}<span class="ell">${t}</span><span class="push nowrap${on ? '' : ' sub'}${w === 1 && none ? ' small' : ''}">${st}</span></div>`;
+}
+function profileBody(c) {
+  const sub = reading(c).sub;
+  return `<div class="pbtn${sub ? ' unsaved' : ''}"><span class="ell">${esc(c.title || c.id)}</span>${sub ? `<span class="small ell">${esc(sub)}</span>` : ''}</div>`;
+}
 function body(c, sz) {
   const [w, h] = M.wh(sz || c.size);
   switch (c.type) {
+    case 'light': return lightBody(c, w, h);
+    case 'profile': return profileBody(c);
     case 'gpu': return gpuBody(c, w, h);
     case 'pool': return poolBody(c, w, h);
     case 'nas-alerts': return alertsBody(h);
@@ -374,8 +414,8 @@ function promUI(c, i, v) {
     <div class="pick" id="pqres${i}">${promList(i, v)}</div>
     <div class="field"><label for="q${i}">Query (PromQL that returns one number; at most ${lim('prom')} bytes)</label><textarea class="q" id="q${i}" rows="2" data-vf="${i}:prometheus" data-max="${lim('prom')}" aria-describedby="q${i}err" spellcheck="false">${esc(v.prometheus ?? '')}</textarea><p class="err" id="q${i}err"></p></div>`;
 }
-function haList(i, v) {
-  const q = (ui['haq' + i] ?? '').toLowerCase(), hits = ha().entities.filter(e => (e.name + ' ' + e.id).toLowerCase().includes(q));
+function haList(c, i, v) {
+  const q = (ui['haq' + i] ?? '').toLowerCase(), hits = ents(c.type).filter(e => (e.name + ' ' + e.id).toLowerCase().includes(q));
   const cut = ha().truncated ? CUT : '';
   if (!hits.length) return '<p>No entity matches.</p>' + cut;
   return hits.slice(0, 60).map(e => `<button type="button" data-act="pickha" data-i="${i}" data-v="${esc(e.id)}" aria-pressed="${v.ha === e.id}"><em>${esc(e.state)}${e.unit ? ' ' + esc(e.unit) : ''}</em>${esc(e.name || e.id)}<span>${esc(e.id)}</span></button>`).join('') +
@@ -384,13 +424,21 @@ function haList(i, v) {
 function haUI(c, i, v) {
   const A = ha(), e = A.entities.find(x => x.id === v.ha);
   let h = notSetUp('Home Assistant', A, 'your entities are listed here');
-  if (A.entities.length) h += `<div class="field"><label for="haq${i}">Find an entity</label><input id="haq${i}" type="search" data-act="search" data-i="${i}" data-k="haq" value="${esc(ui['haq' + i] ?? '')}" placeholder="name or entity id"></div><div class="pick" id="haqres${i}">${haList(i, v)}</div>`;
+  if (A.entities.length) h += `<div class="field"><label for="haq${i}">Find an entity</label><input id="haq${i}" type="search" data-act="search" data-i="${i}" data-k="haq" value="${esc(ui['haq' + i] ?? '')}" placeholder="name or entity id"></div><div class="pick" id="haqres${i}">${haList(c, i, v)}</div>`;
   h += textField(`ent${i}`, 'Entity id', `data-vf="${i}:ha"`, v.ha, 0, 'sensor.living_room_temperature');
   h += `<div class="field"><label for="attr${i}">Show</label>` + (e
     ? `<select id="attr${i}" data-vf="${i}:attr">${opt('', `its state (${e.state}${e.unit ? ' ' + e.unit : ''})`, v.attr ?? '')}${e.attrs.map(a => opt(a, 'attribute ' + a, v.attr)).join('')}${extra(v.attr, e.attrs, 'not seen now')}</select>`
     : `<input id="attr${i}" data-vf="${i}:attr" value="${esc(v.attr ?? '')}" placeholder="its state, or an attribute's name" spellcheck="false">`) + '</div>';
   if (v.attr) h += '<p class="hint">An attribute has no unit of its own: set Unit below.</p>';
   return h + everyField(i, v.every);
+}
+// lightUI is the HA picker cut down to the domains a light card takes: no attribute, no interval.
+function lightUI(c) {
+  const A = ha(), v = c.value ?? {}, doms = T(c.type).entity.join(' or ');
+  let h = `<h3>Which ${esc(c.type)}</h3>` + notSetUp('Home Assistant', A, `your ${esc(doms)} entities are listed here`);
+  if (ents(c.type).length) h += `<div class="field"><label for="haq0">Find a ${esc(doms)}</label><input id="haq0" type="search" data-act="search" data-i="0" data-k="haq" value="${esc(ui.haq0 ?? '')}" placeholder="name or entity id"></div><div class="pick" id="haqres0">${haList(c, 0, v)}</div>`;
+  else if (A.configured && !A.error) h += `<p class="note">Home Assistant lists no ${esc(doms)} entity. Type its id below.</p>`;
+  return h + textField('ent0', 'Entity id', 'data-vf="0:ha"', v.ha, 0, T(c.type).entity[0] + '.desk');
 }
 function jsonUI(c, i, v) {
   const j = v.json ?? {}, names = src.card_env ?? [];
@@ -426,7 +474,7 @@ function renderInsp() {
   let h = `<h2>${esc(c.type)} card</h2><p class="hint">${esc(WHAT[c.type] ?? '')}</p>` +
     (err ? `<p class="note badnote">The server refused the save: <code>${esc(err)}</code></p>` : '') +
     `<div class="field"><label for="cid">Id (yours alone, at most ${lim('id')} bytes)</label><input id="cid" value="${esc(c.id)}" aria-describedby="ciderr" spellcheck="false"><p class="err" id="ciderr"></p></div>`;
-  if (ty.general) h += textField('title', `Title (at most ${lim('title')} bytes)`, 'data-set="title"', c.title, lim('title'));
+  if (titled(c.type)) h += textField('title', `Title (at most ${lim('title')} bytes)`, 'data-set="title"', c.title, lim('title'));
   h += '<div class="field"><span class="lab">Size (columns x rows)</span><div class="chips">' + sizes(c.type).map(sz => {
     const ok = sz === c.size || M.fits(t, c, c.at, sz);
     return `<button type="button" class="chip" id="size-${esc(sz)}" data-act="size" data-v="${esc(sz)}" aria-pressed="${sz === c.size}"${ok ? '' : ' disabled title="No room for it here"'}>${esc(sz)}</button>`;
@@ -463,6 +511,7 @@ function renderInsp() {
     h += `<h3>Which dots</h3><div class="seg" role="group" aria-label="Which dots">${src.dots.map(d => `<button type="button" id="dots-${esc(d)}" data-act="dots" data-v="${esc(d)}" aria-pressed="${c.src === d}">${esc(cap(d))}</button>`).join('')}</div>` +
       (c.src ? '' : '<p class="hint">Not set, so the panel shows its default: both rows.</p>');
   }
+  if (ty.entity) h += lightUI(c);
   if (ty.general) {
     const tk = takes(c), two = Array.isArray(c.value), net = scName(vals(c)[0]) === 'net', first = vals(c)[0];
     h += `<h3>${c.type === 'graph' ? 'First line' : 'Value'}</h3>` + valueUI(c, 0);
@@ -490,7 +539,7 @@ function renderInsp() {
     h += `<h3>On a tap</h3><div class="field"><label for="tap">Tapping the card</label><select id="tap" data-act="tap"${gone ? ' aria-invalid="true"' : ''}>` +
       src.taps.map(x => opt(x, (TAP_WORDS[x] ?? x) + (x === def ? ' (its default)' : ''), tv)).join('') +
       names.map(x => opt(x, 'jumps to the tab ' + x.slice(4), tv)).join('') + (gone ? opt(tv, `jumps to ${tv.slice(4)} (no such tab)`, tv) : '') + '</select></div>';
-  } else h += `<p class="hint">A ${esc(c.type)} card handles its own taps.</p>`;
+  } else h += `<p class="hint">${OWN_TAP[c.type] ?? `A ${esc(c.type)} card handles its own taps.`}</p>`;
   const others = S.tabs.filter(x => x !== t);
   h += `<div class="acts"><button type="button" class="b" id="dup" data-act="dup">Duplicate</button><button type="button" class="b danger" id="del" data-act="del" title="Delete key">Delete</button>
     <select id="moveto" data-act="moveto" aria-label="Move to another tab"${others.length ? '' : ' disabled'}><option value="">Move to tab…</option>${others.map(x => opt(x.name, x.name)).join('')}</select></div>`;
@@ -650,6 +699,12 @@ function makeCard(type) {
   if (ty.src === 'gpu') c.src = src.gpus[0]?.src ?? '';
   if (ty.src === 'pool') c.src = src.pools[0]?.name ?? '';
   if (ty.general) { c.title = cap(type); c.value = newValue(type, 'sc'); }
+  if (ty.entity) {   // the first light or switch no card has yet, else the first
+    const used = allCards().filter(x => x.type === type).map(x => x.value?.ha), e = ents(type).find(x => !used.includes(x.id)) ?? ents(type)[0];
+    c.value = {ha: e?.id ?? ''};
+    if (e?.name) c.title = fitTitle(e.name);
+  }
+  if (type === 'profile') c.title = 'Profile';
   c.id = M.newId(S, (ty.src === 'gpu' || ty.src === 'pool') && c.src ? type + '-' + c.src : type, lim('id'));
   return c;
 }
@@ -932,7 +987,16 @@ function act(a, el) {
     case 'unit': snap(); setField(c, 'unit', c.unit === v ? '' : v); break;
     case 'kind': snap(); setVal(c, i, newValue(c.type, el.dataset.k, listSkip(c))); delete ui['t' + i]; break;
     case 'pickprom': snap(); setVal(c, i, {prometheus: v}); delete ui['t' + i]; break;
-    case 'pickha': { snap(); const old = vals(c)[i], nv = {ha: v}; if (old.every) nv.every = old.every; setVal(c, i, nv); delete ui['t' + i]; break; }
+    case 'pickha': {
+      snap();
+      const old = vals(c)[i], nv = {ha: v}, name = id => ha().entities.find(e => e.id === id)?.name;
+      if (old.every) nv.every = old.every;
+      // a light's title follows the pick while it is empty or still the last entity's name
+      if (T(c.type).entity && (!c.title || c.title === fitTitle(name(old.ha))) && name(v)) c.title = fitTitle(name(v));
+      setVal(c, i, nv);
+      delete ui['t' + i];
+      break;
+    }
     case 'test': return runTest(c, i);
     case 'line-add': snap(); c.value = [c.value, newValue('graph', 'sc', ['net', scName(c.value)])]; break;
     case 'line-del': snap(); c.value = vals(c)[0]; delete ui.t1; break;
@@ -993,7 +1057,7 @@ $('insp').addEventListener('input', e => {
   if (el.dataset.act === 'search') {
     const i = +el.dataset.i;
     ui[el.dataset.k + i] = el.value;
-    $(el.dataset.k + 'res' + i).innerHTML = el.dataset.k === 'pq' ? promList(i, vals(c)[i]) : haList(i, vals(c)[i]);
+    $(el.dataset.k + 'res' + i).innerHTML = el.dataset.k === 'pq' ? promList(i, vals(c)[i]) : haList(c, i, vals(c)[i]);
     return;
   }
   if (el.tagName === 'SELECT' || el.type === 'checkbox' || !(el.dataset.vf || el.dataset.set)) return;

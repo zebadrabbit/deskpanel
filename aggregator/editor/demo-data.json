@@ -303,6 +303,100 @@
         ]
       },
       {
+        "name": "Lights",
+        "cards": [
+          {
+            "id": "lt-morning",
+            "type": "profile",
+            "at": [
+              1,
+              1
+            ],
+            "size": "1x1",
+            "title": "Morning"
+          },
+          {
+            "id": "lt-afternoon",
+            "type": "profile",
+            "at": [
+              2,
+              1
+            ],
+            "size": "1x1",
+            "title": "Afternoon"
+          },
+          {
+            "id": "lt-evening",
+            "type": "profile",
+            "at": [
+              3,
+              1
+            ],
+            "size": "1x1",
+            "title": "Evening"
+          },
+          {
+            "id": "lt-late",
+            "type": "profile",
+            "at": [
+              4,
+              1
+            ],
+            "size": "1x1",
+            "title": "Late night"
+          },
+          {
+            "id": "lt-desk",
+            "type": "light",
+            "at": [
+              1,
+              2
+            ],
+            "size": "2x2",
+            "title": "Desk",
+            "value": {
+              "ha": "light.desk"
+            }
+          },
+          {
+            "id": "lt-shelf",
+            "type": "light",
+            "at": [
+              3,
+              2
+            ],
+            "size": "1x2",
+            "title": "Shelf",
+            "value": {
+              "ha": "light.shelf"
+            }
+          },
+          {
+            "id": "lt-fan",
+            "type": "light",
+            "at": [
+              4,
+              2
+            ],
+            "size": "1x2",
+            "title": "Fan",
+            "value": {
+              "ha": "switch.fan"
+            }
+          },
+          {
+            "id": "lt-all-off",
+            "type": "profile",
+            "at": [
+              1,
+              4
+            ],
+            "size": "2x1",
+            "title": "All off"
+          }
+        ]
+      },
+      {
         "name": "Planka",
         "cards": [
           {
@@ -335,6 +429,48 @@
   "sources": {
     "card_env": [
       "CARD_APP_TOKEN"
+    ],
+    "colors": [
+      {
+        "name": "soft",
+        "needs": 2,
+        "swatch": "ffa957"
+      },
+      {
+        "name": "neutral",
+        "needs": 2,
+        "swatch": "ffd1a3"
+      },
+      {
+        "name": "cool",
+        "needs": 2,
+        "swatch": "e6f0ff"
+      },
+      {
+        "name": "red",
+        "needs": 4,
+        "swatch": "ff0000"
+      },
+      {
+        "name": "amber",
+        "needs": 4,
+        "swatch": "ff9500"
+      },
+      {
+        "name": "green",
+        "needs": 4,
+        "swatch": "00ff00"
+      },
+      {
+        "name": "blue",
+        "needs": 4,
+        "swatch": "0000ff"
+      },
+      {
+        "name": "magenta",
+        "needs": 4,
+        "swatch": "ff00ff"
+      }
     ],
     "dots": [
       "tailscale",
@@ -387,6 +523,16 @@
           ]
         },
         {
+          "id": "light.desk",
+          "name": "Desk",
+          "state": "on",
+          "unit": "",
+          "attrs": [
+            "brightness",
+            "color_temp_kelvin"
+          ]
+        },
+        {
           "id": "light.kitchen",
           "name": "Kitchen",
           "state": "on",
@@ -394,6 +540,15 @@
           "attrs": [
             "brightness",
             "color_temp_kelvin"
+          ]
+        },
+        {
+          "id": "light.shelf",
+          "name": "Shelf",
+          "state": "on",
+          "unit": "",
+          "attrs": [
+            "brightness"
           ]
         },
         {
@@ -499,6 +654,13 @@
         {
           "id": "switch.coffee_maker",
           "name": "Coffee maker",
+          "state": "off",
+          "unit": "",
+          "attrs": []
+        },
+        {
+          "id": "switch.fan",
+          "name": "Fan",
           "state": "off",
           "unit": "",
           "attrs": []
@@ -777,6 +939,22 @@
         "src": "none",
         "tap": true
       },
+      "light": {
+        "default_tap": "none",
+        "entity": [
+          "light",
+          "switch"
+        ],
+        "general": false,
+        "sizes": [
+          "1x1",
+          "1x2",
+          "2x1",
+          "2x2"
+        ],
+        "src": "none",
+        "tap": false
+      },
       "nas-alerts": {
         "default_tap": "alert-details",
         "general": false,
@@ -808,6 +986,16 @@
         ],
         "src": "pool",
         "tap": true
+      },
+      "profile": {
+        "default_tap": "none",
+        "general": false,
+        "sizes": [
+          "1x1",
+          "2x1"
+        ],
+        "src": "none",
+        "tap": false
       },
       "radar": {
         "default_tap": "none",
@@ -1109,6 +1297,33 @@
       "load": {
         "v": "3.07",
         "sub": "of 8 cores"
+      },
+      "lt-afternoon": {
+        "sub": "not saved"
+      },
+      "lt-all-off": {},
+      "lt-desk": {
+        "v": "15%",
+        "v2": "ffa957",
+        "f": 0.149,
+        "th": 7
+      },
+      "lt-evening": {
+        "sub": "not saved"
+      },
+      "lt-fan": {
+        "v": "off",
+        "f": 0,
+        "th": 0
+      },
+      "lt-late": {
+        "sub": "not saved"
+      },
+      "lt-morning": {},
+      "lt-shelf": {
+        "v": "60%",
+        "f": 0.6,
+        "th": 1
       },
       "net": {
         "v": "0.03 Mb/s",

@@ -19,6 +19,8 @@ One Go binary, two modes:
 - a service that drops out every few minutes
 - a phone coming and going on the tailnet
 - two task boards where Done works in memory
+- three lights for `light` cards (`light.desk` with colours, `light.shelf` that only dims, `switch.fan`) that the
+  light and profile routes really change, in memory (see [Lights and profiles](#lights-and-profiles))
 - a Claude-style note every 4 minutes
 - a Weather tab: moving radar frames, conditions, a Tornado Watch and a Wind Advisory; with
   **`DEMO_WARNING=1`** also a Tornado Warning over home (the takeover) and a warning outline
@@ -144,6 +146,7 @@ Custom App → Install via YAML, or the `midclt` line in the file). The NVIDIA r
 | `CARD_<NAME>` | one whole HTTP header line, `Name: value`, for a JSON card that names it as `header_env` (only `CARD_` then `A-Z`, `0-9`, `_`, at most 40 characters after the prefix; a layout naming any other variable is refused, so `PANEL_TOKEN` and the TrueNAS key can never be sent to a URL). See [the JSON source](#the-json-source) |
 | `HA_URL` | Home Assistant's base URL for `{"ha": …}` values, `http(s)://host:8123`. Compose uses host networking, so on the same server it is `http://127.0.0.1:8123`. Unset = `set HA_URL`. See [the Home Assistant source](#the-home-assistant-source) |
 | `HA_TOKEN` | a Home Assistant long-lived access token, sent only to `HA_URL`. Unset = `set HA_TOKEN` |
+| `PROFILES_FILE` | where the light profiles saved from the panel are kept. Default: `profiles.json` in `NOTES_FILE`'s folder, so with the compose files it is `/data/profiles.json` in the `notes` volume and nothing needs setting. Both unset = kept in memory only (the log says so once). See [Lights and profiles](#lights-and-profiles) |
 | `DEMO`, `DEMO_WARNING` | `DEMO=1` fake data everywhere; add `DEMO_WARNING=1` for the demo Tornado Warning over home. `1`/`true`/`yes`/`on` turns a flag on, `0`/`false`/`no`/`off`/empty turns it off (`yes`/`no`/`on`/`off` in any case), anything else stops the aggregator |
 
 Leave a collector's URL empty to turn it off.
@@ -159,6 +162,7 @@ curl $A/healthz                                                    # ok
 curl -i -H "Authorization: Bearer $T" $A/api/v1/panel              # 200 + ETag
 curl -i -H "Authorization: Bearer $T" -H 'If-None-Match: "<etag>"' $A/api/v1/panel   # 304 if unchanged
 curl -i -X POST -H "Authorization: Bearer $T" $A/api/v1/planka/cards/<card id>/done  # 204
+curl -i -X POST -H "Authorization: Bearer $T" $A/api/v1/lights/<card id>/toggle      # 204, see Lights and profiles
 ```
 
 ### Notifications
@@ -275,8 +279,8 @@ doesn't change the document.
 
 ### `GET /api/v1/cards`
 
-The finished contents of the layout's general cards (`number`, `gauge`, `bar`, `graph`, `status`) and the
-history of GPU cards drawn as a graph. Same auth, ETag and 304 as `/panel`. It answers at once from cached
+The finished contents of the layout's general cards (`number`, `gauge`, `bar`, `graph`, `status`), its `light` and
+`profile` cards, and the history of GPU cards drawn as a graph. Same auth, ETag and 304 as `/panel`. It answers at once from cached
 values, whatever Prometheus is doing; the panel polls it every 5 s. `/panel` is unchanged.
 
 ```json
@@ -298,6 +302,12 @@ Keys are card ids. Empty fields are left out.
 | `th` | the `warn` threshold on the same 0..63 scale, for the dashed line |
 
 A GPU card whose slots use `fan` (the gauge, line 1 or line 2) appears with `v` (`"45%"`, or `"--"` when unknown: an old agent, N/A, or the GPU offline) and `f` (0.45, left out when unknown); `0%` is a reading and has `f` 0. Line 1 as `fan` graph adds `g`, the fan history.
+
+A `light` card appears with `v` (`off`, `on` for a light without brightness, or `15%`), `f` (the brightness 0..1; 1 when on
+without brightness, 0 when off), `v2` (its colour as `rrggbb`, only while on and only if Home Assistant reports one) and
+`th`, which here is what the light can do: 1 dims, 2 colour temperature, 4 colour, added up (a switch is 0). `st` is
+`stale` after a failed read, or `none` with the reason in `sub`. A `profile` card appears as `{}` once saved and as
+`{"sub": "not saved"}` before. See [Lights and profiles](#lights-and-profiles).
 
 A GPU card with `line1.as` of `graph` appears with just `g` (its text still comes from `/panel`): an hour of
 once-a-minute samples that the aggregator keeps **in memory**, so they restart empty. A GPU that was off for
@@ -343,6 +353,72 @@ A general card's `value` can be `{"ha": "sensor.living_room_temperature", "attr"
 - A state that parses as a finite number is a number (HA's states are text); `true`/`false` read as 1/0; other text shows on a `number` (cut to 15 bytes) and drives a `status` (up-words as for JSON, anything else down with its word).
 - Unit: the card's `unit`, else the entity's `unit_of_measurement` (state only; an attribute has no HA unit). `°C`, `%` and `W` are formatted as for any card, and a gauge or graph with `%` or `°C` scales 0 to 100.
 - Graphs: as for JSON, except a switch between a number and text keeps the history (HA says `unavailable` while it restarts). `DEMO=1` answers `ha:` keys from `demoHA` (`demo.go`), and the `ha-demo` layout shows them.
+
+### Lights and profiles
+
+A `light` card drives one Home Assistant light or switch and a `profile` card saves and restores what all of them are
+doing (`lights.go`). In `layout.json`:
+
+```json
+{"id": "desk",    "type": "light",   "at": [1, 2], "size": "2x1", "title": "Desk", "value": {"ha": "light.desk"}}
+{"id": "morning", "type": "profile", "at": [1, 1], "size": "1x1", "title": "Morning"}
+```
+
+**Reading.** Each light card's entity is read with `GET HA_URL/api/states/<entity>` every 5 s, at once when the layout
+changes, and again right after an action, through the Home Assistant source's client: the same 5 s timeout, no
+redirects, the one-probe gate while the token is unproven, and the same latch (a 401 or 403 to a read **or** to a
+service call stops every request with that token, the cards' too). At most 4 reads at once; at most 24 light cards in
+a layout. Reasons (`sub`, with `st` `none`): `set HA_URL`, `set HA_TOKEN`, `bad token`, `forbidden`, `no entity`,
+`unreachable`, `http N`, Home Assistant's own `unavailable` / `unknown`, and `no data` before the first read. What a
+light can do comes from its `supported_color_modes`: `color_temp` gives 1 + 2, `hs` / `xy` / `rgb` / `rgbw` / `rgbww`
+1 + 4, `brightness` or `white` 1, `onoff` nothing; a `switch.` entity nothing.
+
+**Actions.** All `POST`, `PANEL_TOKEN`, no body (one sent is never read). `{card}` is a card **id**: the entity
+always comes from the layout being served, so the panel's token can only drive entities that are light cards in the
+current layout, and only with what is listed here.
+
+| Route | Does | Sent to Home Assistant |
+|---|---|---|
+| `/api/v1/lights/{card}/toggle` | toggle | `light/toggle {"entity_id": …}` |
+| `/api/v1/lights/{card}/on`, `/off` | turn on / off | `light/turn_on`, `light/turn_off` |
+| `/api/v1/lights/{card}/bri/{0..100}` | brightness in percent; 0 turns it off; turns an off light on | `light/turn_on {…, "brightness_pct": 15}` |
+| `/api/v1/lights/{card}/color/{name}` | one of the fixed colours; turns an off light on | `light/turn_on {…, "color_temp_kelvin": 2700}` or `{…, "hs_color": [240, 100]}` |
+| `/api/v1/profiles/{card}/save` | save what every light card's entity is doing now, under this profile card's id | (reads only) |
+| `/api/v1/profiles/{card}/apply` | set every saved entity that is still a light card | `turn_off`, or `turn_on` with `brightness` (1..255) and `color_temp_kelvin` or `hs_color` |
+
+A `switch.` entity gets `switch/toggle`, `switch/turn_on`, `switch/turn_off` with only its `entity_id`. Colours:
+`soft` 2700 K, `neutral` 4000 K, `cool` 6000 K (the light needs 2); `red` 0/100, `amber` 35/100, `green` 120/100,
+`blue` 240/100, `magenta` 300/100 as hue/saturation (it needs 4). The table is `lightColors`, served to the editor as
+`sources.colors`.
+
+Answers: **204** done. **400** a brightness that isn't 0 to 100. **404** `no light card '<id>'` / `no profile card
+'<id>'` (not in the layout, or a card of another type) or `no colour '<name>'`. **409** `<title or id> can't do that`
+(brightness on a light that doesn't dim, a colour it doesn't have), `not saved` (apply before a save), `no light
+cards` (save with none in the layout). **502** with a short reason when Home Assistant refused or didn't answer
+(`bad token`, `forbidden`, `no entity`, `unreachable`, `http N`, `unavailable`, `busy, try again` while another
+request is proving the token, `timed out` for a save that ran out of time). **503** `set HA_URL` / `set HA_TOKEN`. **500** `can't write the profiles file`.
+
+A light action is one service call (5 s) and one read of the entity after it, so the panel's next `/api/v1/cards`
+poll already shows the result; 8 s in all. `apply` goes through the entities one after another, 9 s in all; every one
+is tried, and the first failure is the answer. `save` reads each entity fresh, 9 s in all; one that can't be read is
+left out, and if none can the save fails and the old profile is kept. A save is all or nothing: one that runs out of
+time, or that the panel gave up on, stores nothing. (The budgets end before the panel's own 10 s timeout, so it
+always gets the answer.) A profiles file that can't be parsed at start is renamed to `profiles.json.bad` and logged,
+never overwritten.
+
+**Storage.** `PROFILES_FILE` (default `profiles.json` beside `NOTES_FILE`): `{"<profile card id>": {"<entity>":
+{"on", "bri", "mode", "hs", "kelvin"}}}`, rewritten on every save through a temp file and a rename, mode 0600. A
+profile is found by its card's id, so renaming the card's id starts it empty; a deleted card's profile stays in the
+file. `DEMO=1` keeps profiles in memory and starts with two saved for the `lights-demo` layout's `lt-morning` and
+`lt-all-off`.
+
+```sh
+curl -i -X POST -H "Authorization: Bearer $T" $A/api/v1/lights/desk/toggle        # 204
+curl -i -X POST -H "Authorization: Bearer $T" $A/api/v1/lights/desk/bri/15
+curl -i -X POST -H "Authorization: Bearer $T" $A/api/v1/lights/desk/color/soft
+curl -i -X POST -H "Authorization: Bearer $T" $A/api/v1/profiles/morning/save
+curl -i -X POST -H "Authorization: Bearer $T" $A/api/v1/profiles/morning/apply
+```
 
 ## Layout
 
@@ -390,6 +466,12 @@ curl -i -H "Authorization: Bearer $T" -H 'If-None-Match: "<etag>"' $A/api/v1/lay
   none on `status`; `min` below `max`, and none on a gauge or bar with a shortcut. Other types take none of
   `value`, `unit`, `warn`, `bad`, `min`, `max`, `below`. `gpu` alone takes `slots`
   (`gauge`, `line1` `{value, as}`, `line2`). The user guide has the details.
+  `light` (1x1 1x2 2x1 2x2) needs a `value` of exactly `{"ha": "<a light. or switch. entity>"}` (no `attr`, no `every`:
+  `light takes {"ha": "light.x"} or a switch`), at most 24 of them in a layout (`at most 24 light cards`); `profile`
+  (1x1 2x1) needs a `title` (`profile needs a title`) and takes no `value`. Neither takes `src`, a `tap` (they
+  handle their own touches), or any of the general cards' fields. The id of either may hold only letters, digits,
+  `-`, `_` and `.` (`id '<id>': letters, digits, - _ . only`): the panel puts it in the path of its requests; other
+  types keep the general id rule. The response is unchanged: a light's entity is never served.
 
 ### Screen editor routes
 
@@ -411,11 +493,12 @@ its own, never reused (the editor stays off if it equals `PANEL_TOKEN` or `NOTIF
   when `parseLayout` refuses it, 500 `can't write ...` when the folder is read-only. A good save keeps the old file as `layout.json.bak`.
 - `GET /api/v1/editor/sources` : always 200, within 5 s, cached 30 s. The tables `parseLayout` reads (`limits`, `types` with
   their sizes, the default first, `shortcuts` with the types each suits and whether it needs `@instance`, GPU `slots` and
-  their `default`, `tour` defaults, `taps`, `units`, `dots`), the `gpus` and `pools` the collectors report, `prometheus`
+  their `default`, `tour` defaults, `taps`, `units`, `dots`, `colors`: a light's fixed colours as `{name, needs, swatch}`;
+  `types.light.entity` is `["light", "switch"]`, the domains its picker lists), the `gpus` and `pools` the collectors report, `prometheus`
   (`instances`, `mounts`, `metrics`, from its label API) and `ha` (`entities` from `/api/states`, through the cards' client:
   never asked while its token is refused or unset), each with `configured`, `needs` (the `.env` settings still to add,
   by name), a short `error` and `truncated` (a list hit its cap: 5000 metrics, keeping `up` and `node_*`; 2000 entities,
-  keeping `sensor.*`, then `binary_sensor.*`), and `card_env`: the `CARD_*` names set in `.env`, never their values.
+  keeping `sensor.*`, then `light.*` and `switch.*`, then `binary_sensor.*`), and `card_env`: the `CARD_*` names set in `.env`, never their values.
   Prometheus and Home Assistant are asked only when this is called; an answer saying HA is busy isn't cached.
 - `POST /api/v1/editor/test` : a general card's `type`, `value`, `unit`, `min`, `max`, `warn`, `bad`, `below` as in
   `layout.json`, checked as `parseLayout` checks them; the value is asked of its source once (a graph's plot too) and

@@ -8,8 +8,9 @@
 // --layouts walks through the layouts instead, starting with none (and no weather). --rebuilt runs the
 // tour after two layout changes (its frames must match the plain tour's). --no-radar serves noradar.json
 // and checks the tornado takeover without a radar card. --no-wifi is the flasher page's firmware before its
-// settings.txt: Wi-Fi off, no data, no layout; it checks for the set-up note.
-//   deskpanel-sim [--layouts | --rebuilt | --no-radar | --no-wifi] <panel.json> <layouts dir> <outdir> [<weather dir>]
+// settings.txt: Wi-Fi off, no data, no layout; it checks for the set-up note. --lights serves lights-demo.json with a
+// fake Home Assistant behind the light and profile cards, and checks their taps, sheets and roll-back.
+//   deskpanel-sim [--layouts | --rebuilt | --no-radar | --no-wifi | --startup | --lights] <panel.json> <layouts dir> <outdir> [<weather dir>]
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -193,6 +194,154 @@ bool net_cards_take(cards_t *out, uint32_t *seen)
 int64_t net_cards_age_ms(void) { return 2000; }
 
 int net_cards_status(void) { return cards_st; }
+
+// --- lights: a fake Home Assistant behind net_light / net_profile, kept in the cards document's light entries.
+// A request is answered 300 ms later (net_act_result), and only then changes the document, as the aggregator's
+// would: until then the tile shows what the card expects. ---
+static const struct { const char *name; int needs; const char *rgb; } lamp_colors[] = { // the aggregator's table
+    {"soft", 2, "ffa957"}, {"neutral", 2, "ffd1a3"}, {"cool", 2, "e6f0ff"}, {"red", 4, "ff0000"},
+    {"amber", 4, "ff9500"}, {"green", 4, "00ff00"}, {"blue", 4, "0000ff"}, {"magenta", 4, "ff00ff"}};
+typedef struct { bool on; int bri; char rgb[16]; } lamp_t; // bri 0: not looked at yet
+static lamp_t lamps[CARDS_MAX];                           // by the entry's place in cards_doc
+static struct { char id[24]; lamp_t l[CARDS_MAX]; } snaps[8]; // what each profile saved (here, not in the demo data)
+static struct { net_act_t r; char kind; uint32_t at; } acts[8];
+static int nacts;
+static int act_status; // not 0: the next request answers this and changes nothing (204: Home Assistant ignored it)
+static int bri_posts;  // "bri/N" requests so far
+
+static lamp_t *lamp(card_val_t *e)
+{
+    lamp_t *l = &lamps[e - cards_doc.c];
+    if (!l->bri) {
+        l->on = strcmp(e->v, "off");
+        l->bri = l->on && e->f > 0 ? (int)(e->f * 100 + 0.5f) : 100;
+        snprintf(l->rgb, sizeof l->rgb, "%s", e->v2);
+    }
+    return l;
+}
+
+static void lamp_show(card_val_t *e)
+{
+    lamp_t *l = lamp(e);
+    bool dims = e->th & 1;
+    if (!l->on) {
+        strcpy(e->v, "off");
+    } else if (dims) {
+        snprintf(e->v, sizeof e->v, "%d%%", l->bri);
+    } else {
+        strcpy(e->v, "on");
+    }
+    e->f = !l->on ? 0 : dims ? l->bri / 100.f : 1;
+    strcpy(e->v2, l->on ? l->rgb : "");
+    cards_seq++;
+}
+
+static bool is_light(const char *id)
+{
+    for (int t = 0; t < lay_doc.ntabs; t++) {
+        for (int k = 0; k < lay_doc.tabs[t].ncards; k++) {
+            if (!strcmp(lay_doc.tabs[t].cards[k].id, id)) {
+                return !strcmp(lay_doc.tabs[t].cards[k].type, "light");
+            }
+        }
+    }
+    return false;
+}
+
+static int fake_light(const char *id, const char *action)
+{
+    card_val_t *e = (card_val_t *)cards_find(&cards_doc, id);
+    if (!e || !is_light(id)) {
+        return 404;
+    }
+    lamp_t *l = lamp(e);
+    if (!strncmp(action, "bri/", 4)) {
+        if (!(e->th & 1)) {
+            return 409;
+        }
+        l->on = atoi(action + 4) > 0;
+        l->bri = l->on ? atoi(action + 4) : l->bri;
+    } else if (!strncmp(action, "color/", 6)) {
+        int i = 0;
+        while (i < 8 && strcmp(lamp_colors[i].name, action + 6)) {
+            i++;
+        }
+        if (i == 8 || !(e->th & lamp_colors[i].needs)) {
+            return i == 8 ? 404 : 409;
+        }
+        strcpy(l->rgb, lamp_colors[i].rgb);
+        l->on = true;
+    } else {
+        l->on = !strcmp(action, "toggle") ? !l->on : !strcmp(action, "on");
+    }
+    lamp_show(e);
+    return 204;
+}
+
+static int fake_profile(const char *id, const char *action)
+{
+    card_val_t *e = (card_val_t *)cards_find(&cards_doc, id);
+    int s = 0;
+    while (s < 7 && snaps[s].id[0] && strcmp(snaps[s].id, id)) {
+        s++;
+    }
+    if (!e) {
+        return 404;
+    }
+    bool save = !strcmp(action, "save"), mine = snaps[s].id[0];
+    if (!save && !strcmp(e->sub, "not saved")) {
+        return 409;
+    }
+    for (int i = 0; i < cards_doc.n; i++) {
+        card_val_t *c = &cards_doc.c[i];
+        if (!is_light(c->id)) {
+            continue;
+        }
+        if (save) {
+            snaps[s].l[i] = *lamp(c);
+        } else if (mine) {
+            *lamp(c) = snaps[s].l[i];
+        } else if (strstr(id, "off")) { // saved in the demo data, which the sim doesn't have: "All off" is all off
+            lamp(c)->on = false;
+        }
+        lamp_show(c);
+    }
+    if (save) {
+        snprintf(snaps[s].id, sizeof snaps[s].id, "%s", id);
+        e->sub[0] = '\0';
+        cards_seq++;
+    }
+    return 204;
+}
+
+static bool fake_act(char kind, const char *id, const char *action)
+{
+    if (nacts == 8) {
+        return false;
+    }
+    acts[nacts].kind = kind;
+    acts[nacts].at = now_ms + 300;
+    snprintf(acts[nacts].r.card_id, sizeof acts[nacts].r.card_id, "%s", id);
+    snprintf(acts[nacts].r.action, sizeof acts[nacts].r.action, "%s", action);
+    nacts++;
+    bri_posts += !strncmp(action, "bri/", 4);
+    return true;
+}
+
+bool net_light(const char *card_id, const char *action) { return fake_act('l', card_id, action); }
+bool net_profile(const char *card_id, const char *action) { return fake_act('p', card_id, action); }
+
+bool net_act_result(net_act_t *out)
+{
+    if (!nacts || now_ms < acts[0].at) {
+        return false;
+    }
+    *out = acts[0].r;
+    out->status = act_status ? act_status : (acts[0].kind == 'l' ? fake_light : fake_profile)(out->card_id, out->action);
+    act_status = 0;
+    memmove(acts, acts + 1, (size_t)--nacts * sizeof acts[0]);
+    return true;
+}
 
 // Astro: `deskpanel demo-astro` output in build/sim/astro (cwd is firmware/), skies inflated by sim/run.sh.
 // load_astro("night" or "day") serves astro-<name>.json and sky-<name>.raw (change astro_doc and bump astro_seq to
@@ -531,14 +680,23 @@ static lv_obj_t *card_with(lv_obj_t *tv, const char *text)
     return o;
 }
 
-static void press(int x, int y)
+static void touch(int x, int y, int ms) // a finger down for ms: 100 is a tap, past 400 a long press
 {
     finger.x = x;
     finger.y = y;
     finger.down = true;
-    run(100);
+    run(ms);
     finger.down = false;
     run(700);
+}
+
+static void press(int x, int y) { touch(x, y, 100); }
+
+static void touch_obj(lv_obj_t *o, int ms) // its middle
+{
+    lv_area_t a;
+    lv_obj_get_coords(o, &a);
+    touch((a.x1 + a.x2) / 2, (a.y1 + a.y2) / 2, ms);
 }
 
 static void tap_at(const char *text, bool prefix)
@@ -2107,6 +2265,307 @@ static int badge_symbol(void)
     return 0;
 }
 
+// The first visible round object under `o` filled with rgb (a light's dot, a colour swatch), or NULL.
+static lv_obj_t *find_round(lv_obj_t *o, uint32_t rgb)
+{
+    if (lv_obj_is_visible(o) && lv_obj_get_style_radius(o, 0) == LV_RADIUS_CIRCLE &&
+        lv_obj_get_style_bg_opa(o, 0) == LV_OPA_COVER && lv_color_eq(lv_obj_get_style_bg_color(o, 0), lv_color_hex(rgb))) {
+        return o;
+    }
+    for (uint32_t i = 0; i < lv_obj_get_child_count(o); i++) {
+        lv_obj_t *f = find_round(lv_obj_get_child(o, (int32_t)i), rgb);
+        if (f) {
+            return f;
+        }
+    }
+    return NULL;
+}
+
+// A light tile's brightness fill and outline: the fill (the tile's first child, behind the text, faint) is `pct` % of
+// the tile's height inside its border, give or take 2 px (0: hidden), the outline is the dot's colour when on and
+// the plain edge when off, and each label's text still shows through (bright pixels inside it).
+static bool lit(lv_obj_t *card, int pct, uint32_t rgb, const char *what)
+{
+    lv_refr_now(NULL);
+    lv_obj_t *level = lv_obj_get_child(card, 0), *fill = lv_obj_get_child(level, 0);
+    int room = lv_obj_get_height(card) - 2 * lv_obj_get_style_border_width(card, 0);
+    int h = lv_obj_is_visible(level) ? lv_obj_get_height(level) : 0, want = room * pct / 100;
+    lv_area_t a, b, f;
+    lv_obj_get_coords(card, &a);
+    lv_obj_get_coords(level, &b);
+    lv_obj_get_coords(fill, &f);
+    bool ok = abs(h - want) <= 2 && (pct > 0) == (h > 0) && (pct < 100 || h == room) &&
+              lv_color_eq(lv_obj_get_style_border_color(card, 0), lv_color_hex(pct ? rgb : COL_EDGE)) &&
+              find_round(card, pct ? rgb : COL_EDGE) != NULL;
+    if (h) { // on the tile's bottom edge, inside its border, in the dot's colour, behind everything, see-through
+        ok &= b.y2 == a.y2 - 2 && b.x1 == a.x1 + 2 && b.x2 == a.x2 - 2 && f.y2 == b.y2 && lv_obj_get_height(fill) == room &&
+              lv_color_eq(lv_obj_get_style_bg_color(fill, 0), lv_color_hex(rgb)) && lv_obj_get_style_bg_opa(fill, 0) <= LV_OPA_40;
+    }
+    for (uint32_t i = 1; ok && i < lv_obj_get_child_count(card); i++) { // the head row's labels, and the 2x2's value
+        lv_obj_t *o = lv_obj_get_child(card, (int32_t)i);
+        for (uint32_t k = 0; ok && k <= lv_obj_get_child_count(o); k++) {
+            lv_obj_t *l = k ? lv_obj_get_child(o, (int32_t)k - 1) : o;
+            if (!lv_obj_check_type(l, &lv_label_class) || !lv_label_get_text(l)[0]) {
+                continue;
+            }
+            lv_obj_get_coords(l, &b);
+            bool ink = false;
+            for (int y = b.y1; y <= b.y2; y++) {
+                for (int x = b.x1; x <= b.x2; x++) {
+                    uint32_t px = fb[y * W + x];
+                    ink |= (px >> 16 & 0xff) > 120 && (px >> 8 & 0xff) > 120 && (px & 0xff) > 120;
+                }
+            }
+            ok &= ink;
+        }
+    }
+    if (!ok) {
+        fprintf(stderr, "sim: %s: the fill is %d px of %d (want %d %%), or its outline, colour or text is wrong\n", what, h, room, pct);
+    }
+    return ok;
+}
+
+// Like cards_fit(), but for the Lights tab: a light tile's fill reaches into the tile's padding on purpose.
+static bool lights_fit(lv_obj_t *tv)
+{
+    lv_obj_t *tab = shown_tab(tv);
+    for (uint32_t i = 0; i < lv_obj_get_child_count(tab); i++) {
+        lv_obj_t *card = lv_obj_get_child(tab, (int32_t)i);
+        lv_area_t in, a;
+        lv_obj_get_content_coords(card, &in);
+        for (uint32_t k = 0; k < lv_obj_get_child_count(card); k++) {
+            lv_obj_t *o = lv_obj_get_child(card, (int32_t)k);
+            lv_obj_get_coords(o, &a);
+            if (!lv_obj_is_floating(o) && !lv_obj_is_hidden(o) &&
+                (a.x1 < in.x1 || a.y1 < in.y1 || a.x2 > in.x2 || a.y2 > in.y2 || poking_out(o, &in))) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+// --lights: the Lights demo tab (lights-demo.json): the light and profile cards, their sheets, and that a tap, a
+// long press, a swatch, the slider and a failed request do what the design says.
+static int lights(void)
+{
+    lv_obj_t *tv = find_class(lv_screen_active(), &lv_tabview_class), *top = lv_layer_top();
+    tap("OK"); // the newest note's pop-up
+    shot("lights");
+    lv_obj_t *desk = card_with(tv, "Desk"), *shelf = card_with(tv, "Shelf"), *fan = card_with(tv, "Fan");
+    if (!desk || !shelf || !fan || !find(desk, "15%", false) || !find(shelf, "60%", false) || !find(fan, "off", false) ||
+        !find_round(desk, 0xffa957) || !find_round(shelf, 0xd8b56a) || !find_round(fan, COL_EDGE)) {
+        return fail("the light cards don't show the demo's states (15% soft white, 60% brass, off muted)");
+    }
+    const char *names[] = {"Morning", "Afternoon", "Evening", "Late night", "All off", "Desk", "Shelf", "Fan"};
+    for (int i = 0; i < 8; i++) { // whole, on its tile: a cut label reads "Late ni..." or is wider than its box
+        lv_obj_t *l = find(shown_tab(tv), names[i], false);
+        lv_point_t sz;
+        if (l) {
+            lv_text_get_size(&sz, names[i], lv_obj_get_style_text_font(l, 0), 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+        }
+        if (!l || sz.x > lv_obj_get_content_width(l)) {
+            fprintf(stderr, "sim: \"%s\" is cut or missing on the Lights tab\n", names[i]);
+            return 1;
+        }
+    }
+    if (!lights_fit(tv)) {
+        return fail("a card on the Lights tab spills out of its tile");
+    }
+    if (!lit(desk, 15, 0xffa957, "Desk at 15% soft white") || !lit(shelf, 60, 0xd8b56a, "Shelf at 60%") || !lit(fan, 0, 0, "Fan off")) {
+        return 1;
+    }
+
+    touch_obj(fan, 100);
+    if (!find(fan, "on", false) || !lit(fan, 100, 0xd8b56a, "Fan on")) {
+        return fail("a tap on the switch's tile didn't turn it on, filled to the top");
+    }
+    touch_obj(fan, 100);
+    if (!find(fan, "off", false) || !lit(fan, 0, 0, "Fan off again")) {
+        return fail("a second tap on the switch's tile didn't turn it off and empty it");
+    }
+    touch_obj(fan, 600);
+    if (ui_sheet_is_open() || !find(fan, "off", false)) {
+        return fail("a long press on a switch opened a sheet or toggled it");
+    }
+
+    touch_obj(desk, 600); // the colour light: slider, all eight swatches
+    lv_obj_t *slider = find_class(top, &lv_slider_class);
+    bool swatches = true;
+    for (int i = 0; i < 8; i++) {
+        swatches &= find_round(top, (uint32_t)strtoul(lamp_colors[i].rgb, NULL, 16)) != NULL;
+    }
+    if (!ui_sheet_is_open() || !slider || lv_slider_get_value(slider) != 15 || !swatches || !find(desk, "15%", false)) {
+        return fail("a long press on the colour light didn't open its sheet (slider at 15, eight swatches), or toggled it");
+    }
+    shot("lights-sheet");
+    touch_obj(find_round(top, 0x0000ff), 100);
+    if (!find_round(desk, 0x0000ff) || lv_obj_get_height(lv_obj_get_child(desk, 0)) < 14 ||
+        !lv_color_eq(lv_obj_get_style_border_color(desk, 0), lv_color_hex(0x0000ff)) ||
+        !lv_color_eq(lv_obj_get_style_bg_color(lv_obj_get_child(lv_obj_get_child(desk, 0), 0), 0), lv_color_hex(0x0000ff))) {
+        return fail("a tap on the blue swatch didn't turn the tile's dot, outline and fill blue");
+    }
+    lv_area_t a; // a drag along the slider: one request, when the finger lifts
+    lv_obj_get_coords(slider, &a);
+    int posts = bri_posts;
+    finger.x = a.x1 + lv_area_get_width(&a) * 15 / 100;
+    finger.y = (a.y1 + a.y2) / 2;
+    finger.down = true;
+    for (int i = 0; i < 12; i++) {
+        run(40);
+        finger.x += lv_area_get_width(&a) * 5 / 100;
+    }
+    int mid = bri_posts;
+    finger.down = false;
+    run(700);
+    char pct[8];
+    snprintf(pct, sizeof pct, "%d%%", (int)lv_slider_get_value(slider));
+    if (mid != posts || bri_posts != posts + 1 || lv_slider_get_value(slider) < 60 || !find(desk, pct, false) || !find(top, pct, false)) {
+        fprintf(stderr, "sim: the slider drag sent %d requests while dragging, %d in all; slider at %d\n", mid - posts,
+                bri_posts - posts, (int)lv_slider_get_value(slider));
+        return fail("a slider drag didn't send one brightness request on release, or the tile doesn't show it");
+    }
+    int slid = (int)lv_slider_get_value(slider);
+    tap("Close");
+    if (ui_sheet_is_open()) {
+        return fail("the light sheet's Close didn't close it");
+    }
+    if (!lit(desk, slid, 0x0000ff, "Desk in blue after the slider")) {
+        return 1;
+    }
+    shot("lights-blue");
+
+    touch_obj(shelf, 600); // the dim-only light: a slider, no swatches
+    swatches = false;
+    for (int i = 0; i < 8; i++) {
+        swatches |= find_round(top, (uint32_t)strtoul(lamp_colors[i].rgb, NULL, 16)) != NULL;
+    }
+    slider = find_class(top, &lv_slider_class);
+    if (!ui_sheet_is_open() || !slider || lv_slider_get_value(slider) != 60 || swatches) {
+        return fail("the dim-only light's sheet isn't a slider at 60 without swatches");
+    }
+    shot("lights-dim-sheet");
+    tap("Off");
+    if (!find(shelf, "off", false)) {
+        return fail("the sheet's Off didn't turn the light off");
+    }
+    tap("On");
+    run(1000); // "on" at once; the 60% comes with the next cards document (the UI looks every 500 ms)
+    if (!find(shelf, "60%", false)) {
+        return fail("the sheet's On didn't bring the light back at 60%");
+    }
+    tap("Close");
+
+    tap("Morning"); // saved in the demo data
+    if (!find(top, "Morning", false)) {
+        return fail("a press on a saved profile didn't toast its title");
+    }
+    tap("Evening");
+    if (!find(top, "Hold to save the current lights as Evening", false)) {
+        return fail("a press on an unsaved profile didn't say to hold it");
+    }
+    touch_obj(card_with(tv, "Evening"), 600);
+    if (!find(top, "Save the current lights as Evening?", false)) {
+        return fail("a long press on a profile didn't open its save sheet");
+    }
+    shot("lights-profile-save");
+    tap("Save");
+    if (ui_sheet_is_open() || !find(top, "Saved Evening", false)) {
+        return fail("the save sheet's Save didn't toast \"Saved Evening\"");
+    }
+    tap("All off");
+    run(1000); // a profile changes the tiles through the cards document only
+    if (!find(desk, "off", false) || !find(shelf, "off", false) || !find_round(desk, COL_EDGE)) {
+        return fail("\"All off\" left a light on");
+    }
+    tap("Evening"); // saved a moment ago: the lights as they were then
+    if (!find(top, "Evening", false)) {
+        return fail("a press on the profile just saved didn't toast its title");
+    }
+    run(1000);
+    if (!find(desk, pct, false) || !find_round(desk, 0x0000ff) || !find(shelf, "60%", false)) {
+        return fail("the profile saved on the panel didn't bring the lights back");
+    }
+
+    act_status = 502; // Home Assistant refuses: the tile shows "on" at once, then goes back, with a toast
+    lv_obj_get_coords(fan, &a);
+    finger.x = (a.x1 + a.x2) / 2;
+    finger.y = (a.y1 + a.y2) / 2;
+    finger.down = true;
+    run(100);
+    finger.down = false;
+    run(100);
+    if (!find(fan, "on", false) || !lit(fan, 100, 0xd8b56a, "Fan on, unanswered")) {
+        return fail("a tap didn't show the expected state (text, fill, outline) before the answer came");
+    }
+    run(700);
+    if (!find(fan, "off", false) || !lit(fan, 0, 0, "Fan rolled back") || !find(top, "Home Assistant didn't answer", false)) {
+        return fail("a failed request didn't put the tile back, or didn't toast");
+    }
+    act_status = 204; // accepted, but the light never changes: the expected state is dropped after 10 s
+    touch_obj(fan, 100);
+    run(8000);
+    if (!find(fan, "on", false)) {
+        return fail("the expected state went before its 10 s were up");
+    }
+    run(2000);
+    if (!find(fan, "off", false)) {
+        return fail("an expected state the data never confirmed stayed past 10 s");
+    }
+
+    card_val_t *fv = (card_val_t *)cards_find(&cards_doc, "lt-fan"); // no state: the reason whole, under the title
+    fv->st = CV_NONE;
+    snprintf(fv->sub, sizeof fv->sub, "set HA_TOKEN");
+    cards_seq++;
+    layout_card_t *sd = NULL; // and beside it a title too long for a 1x2: one line, ending in "...", inside the tile
+    for (int k = 0; k < lay_doc.tabs[0].ncards; k++) {
+        sd = strcmp(lay_doc.tabs[0].cards[k].id, "lt-shelf") ? sd : &lay_doc.tabs[0].cards[k];
+    }
+    snprintf(sd->title, sizeof sd->title, "Bookshelf reading lamp");
+    lay_seq++;
+    run(1200);
+    fan = card_with(tv, "Fan");
+    if (!fan) {
+        return fail("the Fan tile went with the layout change");
+    }
+    shot("lights-none");
+    snprintf(sd->title, sizeof sd->title, "Shelf"); // (the next layout change, below, brings it back)
+    if (!find(fan, "Fan", false) || !find(fan, "set HA_TOKEN", false) || !lit(fan, 0, 0, "Fan with no state") || !lights_fit(tv)) {
+        return fail("a light with no state doesn't show its title and the whole reason");
+    }
+    touch_obj(fan, 100); // ignored: had it gone out, the fake would have turned the fan on
+    fv->st = CV_OK;
+    fv->sub[0] = '\0';
+    cards_seq++;
+    run(600);
+    if (!find(fan, "off", false)) {
+        return fail("a tap on a light with no state sent a request");
+    }
+
+    for (int k = 0; k < lay_doc.tabs[0].ncards; k++) { // the one-row sizes, which the demo doesn't place
+        layout_card_t *d = &lay_doc.tabs[0].cards[k];
+        if (!strcmp(d->id, "lt-shelf")) {
+            d->col = 3, d->row = 2, d->w = 2, d->h = 1;
+        } else if (!strcmp(d->id, "lt-fan")) {
+            d->col = 3, d->row = 3, d->w = 1, d->h = 1;
+        }
+    }
+    lay_seq++;
+    run(1200);
+    shelf = card_with(tv, "Shelf");
+    fan = card_with(tv, "Fan");
+    if (!shelf || !fan || lv_obj_get_height(shelf) != 51 || lv_obj_get_height(fan) != 51) {
+        return fail("the Shelf and Fan tiles didn't come back one row tall");
+    }
+    touch_obj(fan, 100);
+    shot("lights-small");
+    if (!find(shelf, "60%", false) || !find(fan, "on", false) || !lit(shelf, 60, 0xd8b56a, "Shelf at 2x1") ||
+        !lit(fan, 100, 0xd8b56a, "Fan on at 1x1") || !lights_fit(tv)) {
+        return fail("the one-row light tiles don't show their state, fill and outline");
+    }
+    return 0;
+}
+
 // --startup: the startup screen from power-on to the first tab, a shot per state.
 static int startup_walk(void)
 {
@@ -2154,13 +2613,14 @@ int main(int argc, char **argv)
 {
     const char *mode = argc > 1 && !strncmp(argv[1], "--", 2) ? argv[1] : "";
     bool walk_layouts = !strcmp(mode, "--layouts"), rebuilt = !strcmp(mode, "--rebuilt"),
-         noradar = !strcmp(mode, "--no-radar"), nowifi = !strcmp(mode, "--no-wifi"), startup = !strcmp(mode, "--startup");
+         noradar = !strcmp(mode, "--no-radar"), nowifi = !strcmp(mode, "--no-wifi"), startup = !strcmp(mode, "--startup"),
+         lamps_walk = !strcmp(mode, "--lights");
     argc -= mode[0] != 0;
     argv += mode[0] != 0;
     clock_back = rebuilt;
     startup_off = !startup && !nowifi; // the other walk-throughs start where the startup screen has gone
-    if ((argc != 4 && argc != 5) || (mode[0] && !walk_layouts && !rebuilt && !noradar && !nowifi && !startup)) {
-        fprintf(stderr, "usage: %s [--layouts | --rebuilt | --no-radar | --no-wifi | --startup] <panel.json> <layouts dir> <outdir> [<weather dir>]\n",
+    if ((argc != 4 && argc != 5) || (mode[0] && !walk_layouts && !rebuilt && !noradar && !nowifi && !startup && !lamps_walk)) {
+        fprintf(stderr, "usage: %s [--layouts | --rebuilt | --no-radar | --no-wifi | --startup | --lights] <panel.json> <layouts dir> <outdir> [<weather dir>]\n",
                 argv[0]);
         return 2;
     }
@@ -2180,7 +2640,7 @@ int main(int argc, char **argv)
     }
     wifi_unset = nowifi;
     if (!walk_layouts && !nowifi && !startup) {
-        load_layout(noradar ? "noradar.json" : "default.json"); // as if the aggregator answered at once
+        load_layout(noradar ? "noradar.json" : lamps_walk ? "lights-demo.json" : "default.json"); // as if the aggregator answered at once
     }
     if (startup) {
         wifi_state = NET_OFF;
@@ -2220,6 +2680,9 @@ int main(int argc, char **argv)
     }
     if (walk_layouts) {
         return layouts();
+    }
+    if (lamps_walk) {
+        return lights();
     }
     if (nowifi) {
         shot("first-boot");

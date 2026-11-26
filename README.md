@@ -31,6 +31,8 @@ rendering the aggregator's demo data. More of them are in [docs/screen.md](docs/
   a Home Assistant entity. Each source is optional.
 - **Claude Code hooks included.** One installer adds three hooks: the panel tells you when Claude needs
   you, and when a turn longer than 2 minutes finishes. Handy when a full-screen game hides your taskbar.
+- **Runs your lights.** Tap a Home Assistant light to toggle it, hold for brightness and colour, and set the
+  room with one-press profiles you save from the panel ([Lights](docs/lights.md)).
 - **Taps do things.** Mark a task card done from the panel. Tap the NAS alerts tile for the details. Tap
   the bell for the notification history.
 - **Never blank.** If the server goes away, the last data stays on screen, greyed out with a STALE pill.
@@ -123,6 +125,7 @@ Notifications                  ─┘                    POST .../cards/{id}/don
 | [What's on the screen](docs/screen.md) | Every tile, colour and badge. Notifications, the idle tour, the astronomical clock, the weather. |
 | [layout.json](docs/layout.md) | Your own tabs by hand: the grid, card types and sizes, taps, limits, the `tour` block. |
 | [Cards](docs/cards.md) | Prometheus, JSON and Home Assistant cards, GPU card slots, what a card's small text means. |
+| [Lights](docs/lights.md) | Home Assistant lights from the panel: tap to toggle, hold for brightness and colour, one-press profiles. |
 | [The screen editor](docs/editor.md) | Laying out tabs in the browser: `EDITOR_TOKEN`, saving, the backup file, the demo. |
 | [How do I…](docs/how-to.md) | Planka boards, notifications from other tools, Claude Code hooks, GPU machines, updates, tokens. |
 | [Troubleshooting](docs/troubleshooting.md) | "When something looks wrong", and where everything lives. |
@@ -140,6 +143,7 @@ It runs every day on its author's desk. Working today:
 - **Weather page:** NEXRAD radar loop, conditions, NWS alerts and the tornado-warning takeover (US only).
 - **Your own tabs:** `layout.json` and the browser screen editor; cards for Prometheus, JSON status pages and
   Home Assistant.
+- **Lights:** Home Assistant lights and switches from the panel, with saved profiles.
 - **Notifications** with history, from Alertmanager and Grafana webhooks, ntfy publishers, Claude Code hooks and
   the aggregator's own events.
 - **Idle tour and astronomical clock**, a startup screen, and the last data kept on the SD card across reboots.

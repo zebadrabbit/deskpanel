@@ -167,6 +167,31 @@ test('toSource round-trips every kind of field, dropping only taps written out a
   assert.deepEqual(JSON.parse(m.fileText(out)), out, 'fileText is the same JSON');
 });
 
+test('toSource round-trips light and profile cards as written, key order intact', () => {
+  const given = {tabs: [{name: 'Lights', cards: [
+    {id: 'desk', type: 'light', at: [1, 2], size: '2x1', title: 'Desk', value: {ha: 'light.desk'}},
+    {id: 'fan', type: 'light', at: [3, 2], size: '1x1', value: {ha: 'switch.fan'}},
+    {id: 'morning', type: 'profile', at: [1, 1], size: '1x1', title: 'Morning'},
+  ]}]};
+  const out = m.toSource(given, src);
+  assert.deepEqual(out, given);
+  assert.deepEqual(out.tabs[0].cards.map(c => Object.keys(c)), [
+    ['id', 'type', 'at', 'size', 'title', 'value'], ['id', 'type', 'at', 'size', 'value'], ['id', 'type', 'at', 'size', 'title']]);
+  assert.deepEqual(Object.keys(out.tabs[0].cards[0].value), ['ha'], 'no attr, no every');
+  // keys in another order, an empty title and the default tap spelled out come back in the file's form
+  const messy = {tabs: [{name: 'Lights', cards: [
+    {value: {ha: 'light.desk'}, title: 'Desk', size: '2x1', tap: 'none', at: [1, 2], type: 'light', id: 'desk'},
+    {title: '', value: {ha: 'switch.fan'}, size: '1x1', at: [3, 2], type: 'light', id: 'fan'},
+    {title: 'Morning', tap: 'none', size: '1x1', at: [1, 1], type: 'profile', id: 'morning'},
+  ]}]};
+  assert.equal(JSON.stringify(m.toSource(messy, src)), JSON.stringify(given));
+  assert.match(m.fileText(out), /^ {8}\{"id": "desk", "type": "light", "at": \[1, 2\], "size": "2x1", "title": "Desk", "value": \{"ha": "light.desk"\}\},$/m);
+  assert.match(m.fileText(out), /^ {8}\{"id": "morning", "type": "profile", "at": \[1, 1\], "size": "1x1", "title": "Morning"\}$/m);
+  assert.deepEqual(m.sizesFor(src, 'light'), ['1x1', '1x2', '2x1', '2x2']);
+  assert.deepEqual(m.sizesFor(src, 'profile'), ['1x1', '2x1']);
+  assert.equal(m.nearestSize(m.sizesFor(src, 'profile'), 2, 2), '2x1', 'a profile never grows to 2x2');
+});
+
 test('toSource takes a layout with no tabs or no cards (null in the JSON) without throwing', () => {
   assert.deepEqual(m.toSource({tabs: null}, src), {tabs: []});
   assert.deepEqual(m.toSource({tabs: [{name: 'A', cards: null}]}, src), {tabs: [{name: 'A', cards: []}]});

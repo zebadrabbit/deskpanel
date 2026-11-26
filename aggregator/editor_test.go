@@ -489,6 +489,10 @@ func edCard(typ, size, extra string) string {
 	switch {
 	case typ == "status":
 		c += `,"value":{"prometheus":"up"}`
+	case typ == "light":
+		c += `,"value":{"ha":"light.desk"}`
+	case typ == "profile":
+		c += `,"title":"Morning"`
 	case contains(generalTypes, typ):
 		c += `,"value":"cpu"`
 	}

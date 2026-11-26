@@ -151,6 +151,20 @@ Three more runs check the board, radar and takeover across layouts, and the firs
   before. The logo image is `main/startup_logo.rgb565`, made on a PC with Pillow from a 312x244 PNG of the logo block (already narrowed
   for the panel, on the background colour):
   `python -c "from PIL import Image; import struct; open('firmware/main/startup_logo.rgb565','wb').write(b''.join(struct.pack('<H',(r>>3)<<11|(g>>2)<<5|b>>3) for r,g,b in Image.open('logo-312x244.png').convert('RGB').getdata()))"`
+- `--lights` (`build/sim/lights/`): `lights-demo.json` (the light and profile cards) with a fake Home Assistant
+  in `sim.c` behind `net_light` / `net_profile`: it answers 300 ms after a request and only then changes the
+  cards document, so the tiles' expected state is what shows first. Shots: `lights.png` (the tab),
+  `lights-sheet.png` (a colour light's sheet: slider and eight swatches), `lights-dim-sheet.png` (a light that
+  only dims: slider, no swatches), `lights-blue.png` (a tile in pure blue), `lights-profile-save.png` (a
+  profile's save sheet), `lights-none.png` (a light with no state: its reason under the title) and
+  `lights-small.png` (the one-row sizes, 2x1 and 1x1, which the demo layout doesn't place: the walk resizes two
+  tiles). A light tile comes in 1x1, 2x1, 1x2 and 2x2. Checks: titles uncut at 1x1, a tap flips a tile, a long
+  press opens the sheet (nothing on a switch, and no toggle), a swatch recolours the tile's dot, outline and
+  fill, the fill is as tall as the light is bright (15 %, 60 %, none when off, the whole tile for a switch
+  that is on) at every size with the text still showing over it, the outline is the dot's colour when on, a
+  slider drag sends one request on release, the sheet's On / Off, a saved profile toasts its title, an unsaved
+  one says to hold it, Save then apply brings the lights back, a refused request puts the tile back with a
+  toast, an unconfirmed state is dropped after 10 s, and a light with no state ignores a tap.
 
 Changed a page? Re-run `sh sim/run.sh` and look at the PNGs before flashing. It catches layout and tap
 problems in seconds: its first run found a tile header that swallowed taps. If a scripted tap can't find

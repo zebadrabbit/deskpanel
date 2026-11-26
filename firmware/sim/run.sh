@@ -32,8 +32,8 @@ docker run --rm -u "$user" -e HOME=/tmp -e OUT="$out" -e DEMO_NOW -e TZ -v "$PWD
   # The image has no zlib headers, so inflate the radar frames and skies here: frame-<t>.z -> frame-<t>.raw, sky-<n>.z -> sky-<n>.raw
   python3 -c "import glob, zlib
 for p in glob.glob(\"build/sim/wx/frame-*.z\") + glob.glob(\"build/sim/astro/sky-*.z\"): open(p[:-1] + \"raw\", \"wb\").write(zlib.decompress(open(p, \"rb\").read()))"
-  rm -rf "$OUT/unset" "$OUT/layout" "$OUT/rebuilt" "$OUT/noradar" "$OUT/nowifi" "$OUT/startup" "$OUT"/*.ppm
-  mkdir -p "$OUT/unset" "$OUT/layout" "$OUT/rebuilt" "$OUT/noradar" "$OUT/nowifi" "$OUT/startup"
+  rm -rf "$OUT/unset" "$OUT/layout" "$OUT/rebuilt" "$OUT/noradar" "$OUT/nowifi" "$OUT/startup" "$OUT/lights" "$OUT"/*.ppm
+  mkdir -p "$OUT/unset" "$OUT/layout" "$OUT/rebuilt" "$OUT/noradar" "$OUT/nowifi" "$OUT/startup" "$OUT/lights"
   S="build/sim/deskpanel-sim" D="build/sim/demo.json" L="build/sim/layouts"
   $S $D $L "$OUT" build/sim/wx
   $S --rebuilt $D $L "$OUT/rebuilt" build/sim/wx # the tour after two layout changes: frames to compare, no PNGs
@@ -43,7 +43,8 @@ for p in glob.glob(\"build/sim/wx/frame-*.z\") + glob.glob(\"build/sim/astro/sky
   $S --no-radar $D $L "$OUT/noradar" build/sim/wx # the takeover without a radar card
   $S --no-wifi $D $L "$OUT/nowifi" # the generic firmware (flasher page), no settings.txt yet
   $S --startup $D $L "$OUT/startup" # the startup screen, power-on to the first tab
+  $S --lights $D $L "$OUT/lights" # the light and profile cards against a fake Home Assistant
   python3 sim/png.py "$OUT" ../docs/screenshots
-  for d in unset layout noradar nowifi startup; do # (not in the tour)
+  for d in unset layout noradar nowifi startup lights; do # (not in the tour)
     python3 sim/png.py "$OUT/$d" "$OUT/$d" && rm "$OUT/$d/tour.png" && cp "$OUT/$d"/*.png ../docs/screenshots/
   done'

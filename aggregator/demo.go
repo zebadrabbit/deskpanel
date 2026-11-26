@@ -240,7 +240,7 @@ func editorDemo() ([]byte, error) {
 		Panel   json.RawMessage `json:"panel"`
 		Cards   json.RawMessage `json:"cards"`
 	}{l, sourcesDoc(slots, demoPromListing(), demoHAListing(dp), []string{"CARD_APP_TOKEN"}),
-		encodePanel(slots), cardsDoc(parsed, readers{prom: dp, json: dp}, demoHistory(now))}
+		encodePanel(slots), cardsDocWith(parsed, readers{prom: dp, json: dp}, demoHistory(now), newDemoLights())}
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
 	enc.SetEscapeHTML(false)
@@ -249,8 +249,8 @@ func editorDemo() ([]byte, error) {
 	return b.Bytes(), err
 }
 
-// editorDemoLayout is what the editor demo opens on: the default tabs for the demo collectors with a Prometheus tab
-// and a Home Assistant tab between them, a GPU with a graph slot, a card that jumps to a tab, and a tour that skips
+// editorDemoLayout is what the editor demo opens on: the default tabs for the demo collectors with a Prometheus tab,
+// a Home Assistant tab and the Lights tab between them, a GPU with a graph slot, a card that jumps to a tab, and a tour that skips
 // Planka. Default taps are left out, as the editor saves.
 func editorDemoLayout(f found) Layout {
 	num := func(x float64) *float64 { return &x }
@@ -285,7 +285,9 @@ func editorDemoLayout(f found) Layout {
 	}}
 	def := defaultLayout(f)
 	def.Tabs[0].Cards[1].Slots = &gpuSlots{Line1: &slotLine{Value: "vram", As: "graph"}} // the second GPU's line 1 as a graph
-	l := Layout{Tour: &Tour{Skip: []string{"Planka"}}, Tabs: []Tab{def.Tabs[0], server, home, def.Tabs[1], def.Tabs[2]}}
+	// the simulator's Lights tab: newDemoLights knows its ids
+	lights := demoGeneralLayouts(def)["lights-demo"].Tabs[0]
+	l := Layout{Tour: &Tour{Skip: []string{"Planka"}}, Tabs: []Tab{def.Tabs[0], server, home, lights, def.Tabs[1], def.Tabs[2]}}
 	for _, t := range l.Tabs {
 		for j := range t.Cards {
 			if t.Cards[j].Tap == defaultTap(t.Cards[j].Type) {
@@ -385,8 +387,12 @@ var demoHA = map[string]struct {
 	"sensor.energy_today":            {name: "Energy today", state: "7.42", unit: "kWh", attrs: map[string]any{"device_class": "energy"}},
 	"sensor.phone_battery":           {name: "Phone battery", state: "76", unit: "%", attrs: map[string]any{"device_class": "battery"}},
 	"switch.coffee_maker":            {name: "Coffee maker", state: "off"},
-	"cover.garage_door":              {name: "Garage door", state: "closed", attrs: map[string]any{"current_position": 0.0}},
-	"climate.living_room":            {name: "Living room", state: "heat", attrs: map[string]any{"current_temperature": 21.5, "temperature": 22.0, "hvac_action": "heating"}},
+	// the three lights of newDemoLights (lights.go), as they start
+	"light.desk":          {name: "Desk", state: "on", attrs: map[string]any{"brightness": 38.0, "color_temp_kelvin": 2700.0}},
+	"light.shelf":         {name: "Shelf", state: "on", attrs: map[string]any{"brightness": 153.0}},
+	"switch.fan":          {name: "Fan", state: "off"},
+	"cover.garage_door":   {name: "Garage door", state: "closed", attrs: map[string]any{"current_position": 0.0}},
+	"climate.living_room": {name: "Living room", state: "heat", attrs: map[string]any{"current_temperature": 21.5, "temperature": 22.0, "hvac_action": "heating"}},
 }
 
 // demoProm answers any query with a believable moving value: the mockup's numbers for the shortcut
@@ -511,7 +517,7 @@ func demoCardsDoc(now time.Time) ([]byte, error) {
 		var d struct {
 			Cards map[string]cardOut `json:"cards"`
 		}
-		if err := json.Unmarshal(cardsDoc(l, pr, h), &d); err != nil {
+		if err := json.Unmarshal(cardsDocWith(l, pr, h, newDemoLights()), &d); err != nil {
 			return nil, err
 		}
 		for id, c := range d.Cards {

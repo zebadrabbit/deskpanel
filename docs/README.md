@@ -9,6 +9,7 @@ New here? Start with [Getting started](getting-started.md). The [front page](../
 | [What's on the screen](screen.md) | The status bar, the Homelab, Planka and Weather pages, notifications, the idle tour and the astronomical clock, setting up the weather. |
 | [Your own tabs: layout.json](layout.md) | The layout file, the grid, card types and sizes, taps, limits, what happens when you save, the `tour` block. |
 | [Cards](cards.md) | General cards from Prometheus, an app's JSON status page or Home Assistant. GPU card slots. What a card's small text means. |
+| [Lights](lights.md) | Home Assistant lights from the panel: light tiles, brightness and colour, saved profiles, what the panel may do. |
 | [The screen editor](editor.md) | Lay out tabs in the browser: `EDITOR_TOKEN`, saving, the backup file, the made-up-data demo. |
 | [How do I…](how-to.md) | Recipes: Planka boards, notifications from other tools, Claude Code hooks, service dots, GPU machines, updates, tokens. |
 | [Troubleshooting](troubleshooting.md) | "When something looks wrong", row by row, and where everything lives. |

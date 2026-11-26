@@ -130,7 +130,7 @@ func (s *jsonSrc) haFetch(ctx context.Context, sp jsonSpec) (promVal, string, er
 	if why, _ := s.haState(tok); why != "" {
 		return promVal{}, why, nil
 	}
-	body, code, err := s.do(ctx, &s.haHC, base+"/api/states/"+sp.HA, "Authorization", "Bearer "+tok, jsonMaxBody)
+	body, code, err := s.do(ctx, &s.haHC, "GET", base+"/api/states/"+sp.HA, nil, "Authorization", "Bearer "+tok, jsonMaxBody)
 	if err == nil {
 		s.haSaw(tok, code)
 	}
@@ -174,6 +174,41 @@ func (s *jsonSrc) haFetch(ctx context.Context, sp jsonSpec) (promVal, string, er
 	return v, "", nil
 }
 
+// haDo is one request to Home Assistant for the lights (lights.go): a state read (GET) or a service call (POST with
+// a JSON body), path under HA_URL. It goes through the cards' client, probe gate and 401/403 latch, so a token refused
+// here is never sent again by anything. why is what stopped it or what HA said ("set HA_URL", "set HA_TOKEN", haBusy,
+// "bad token", "forbidden", "no entity"); err is no answer, or "http N".
+func (s *jsonSrc) haDo(ctx context.Context, method, path string, send []byte) (reply []byte, why string, err error) {
+	base, tok, needs := s.haConf()
+	if len(needs) > 0 {
+		return nil, "set " + needs[0], nil
+	}
+	release, ok := s.haGate()
+	if !ok {
+		return nil, haBusy, nil
+	}
+	defer release()
+	if why, _ := s.haState(tok); why != "" { // latched: this token was refused, never send it again
+		return nil, why, nil
+	}
+	reply, code, err := s.do(ctx, &s.haHC, method, base+path, send, "Authorization", "Bearer "+tok, jsonMaxBody)
+	if err != nil {
+		return nil, "", err
+	}
+	s.haSaw(tok, code)
+	switch {
+	case code == http.StatusUnauthorized:
+		return nil, "bad token", nil
+	case code == http.StatusForbidden:
+		return nil, "forbidden", nil
+	case code == http.StatusNotFound:
+		return nil, "no entity", nil
+	case code/100 != 2:
+		return nil, "", errors.New("http " + strconv.Itoa(code))
+	}
+	return reply, "", nil
+}
+
 const (
 	haListMax     = 4 << 20 // /api/states of a big house is a few MB
 	haMaxEntities = 2000
@@ -207,7 +242,7 @@ func (s *jsonSrc) haList(ctx context.Context) haListing {
 		out.Error = why
 		return out
 	}
-	body, code, err := s.do(ctx, &s.haHC, base+"/api/states", "Authorization", "Bearer "+tok, haListMax)
+	body, code, err := s.do(ctx, &s.haHC, "GET", base+"/api/states", nil, "Authorization", "Bearer "+tok, haListMax)
 	if err != nil {
 		out.Error = "unreachable" // the error carries the URL
 		return out
@@ -232,8 +267,8 @@ func (s *jsonSrc) haList(ctx context.Context) haListing {
 
 // haStates reads a /api/states reply: the entities a card can name (the haEntityRe ids), sorted by id. One it can't
 // read is left out, not the list: a state that is a number or true/false is its text, anything else ""; attributes
-// that aren't an object are none. Over haMaxEntities, sensors are kept first, then binary sensors, then the rest by
-// id (truncated says so). Each has at most haMaxAttrs attributes holding a number or text, name and unit apart.
+// that aren't an object are none. Over haMaxEntities, sensors are kept first, then lights and switches (a light
+// card's picker), then binary sensors, then the rest by id (truncated says so). Each has at most haMaxAttrs attributes holding a number or text, name and unit apart.
 func haStates(body []byte) (list []haEntity, truncated bool, err error) {
 	var in []json.RawMessage
 	if json.Unmarshal(body, &in) != nil {
@@ -280,10 +315,12 @@ func haStates(body []byte) (list []haEntity, truncated bool, err error) {
 		switch domain, _, _ := strings.Cut(e.ID, "."); domain {
 		case "sensor":
 			return 0
-		case "binary_sensor":
+		case "light", "switch":
 			return 1
+		case "binary_sensor":
+			return 2
 		}
-		return 2
+		return 3
 	}
 	out, truncated = capRanked(out, haMaxEntities, rank, func(e haEntity) string { return e.ID })
 	return out, truncated, nil

@@ -38,13 +38,14 @@ func TestDemoDeterministic(t *testing.T) {
 	}
 }
 
-// general cards, and gpu cards with a graph or a fan slot, are the ones with an entry in the cards document
+// general, light and profile cards, and gpu cards with a graph or a fan slot, are the ones with an entry in the
+// cards document
 func hasEntry(c Card) bool {
 	if c.Type == "gpu" {
 		_, _, as, _ := c.slots()
 		return as == "graph" || c.usesFan()
 	}
-	return contains(generalTypes, c.Type)
+	return contains(generalTypes, c.Type) || c.Type == "light" || c.Type == "profile"
 }
 
 func TestDemoLayoutsIDsUnique(t *testing.T) {

@@ -26,6 +26,9 @@ const maxJSONSources = 64
 // hand-edited layout can't send PANEL_TOKEN or the TrueNAS key to a URL.
 var headerEnvRe = regexp.MustCompile(`^CARD_[A-Z0-9_]{1,40}$`)
 
+// urlIDRe: a light or profile card's id goes into the path of the panel's requests (/api/v1/lights/<id>/toggle).
+var urlIDRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
+
 // lookupEnv is swapped in tests.
 var lookupEnv = os.LookupEnv
 
@@ -334,6 +337,8 @@ var cardSizes = map[string][]string{
 	"bar":        {"1x1", "1x2", "2x1"},
 	"graph":      {"2x2", "2x3", "4x2", "4x3"},
 	"status":     {"1x1", "2x1"},
+	"light":      {"1x1", "1x2", "2x1", "2x2"},
+	"profile":    {"1x1", "2x1"},
 }
 
 var (
@@ -341,7 +346,7 @@ var (
 	typeSrc     = map[string]string{"gpu": "gpu", "pool": "pool", "dots": "dots"}
 	dotsSrcs    = []string{"tailscale", "services", "both"} // a dots card's src; none is both
 	tapNames    = []string{"notifications", "alert-details", "none"}
-	ownTapTypes = []string{"board", "radar"} // full-tab cards with their own touch handling: no tap
+	ownTapTypes = []string{"board", "radar", "light", "profile"} // cards with their own touch handling: no tap
 )
 
 const maxUnitLen = 8
@@ -519,6 +524,7 @@ func parseLayout(data []byte) (Layout, error) {
 
 	ids := map[string]bool{}
 	jsonKeys := map[string]bool{}
+	nLights := 0
 	for i, t := range l.Tabs {
 		if len(t.Cards) > maxCardsPerTab {
 			return l, &layoutError{cl(i, maxCardsPerTab), fmt.Sprintf("tab '%s' has over %d cards", short(t.Name), maxCardsPerTab)}
@@ -578,8 +584,24 @@ func parseLayout(data []byte) (Layout, error) {
 					return fail("takes no src")
 				}
 			default:
-				if len(c.Value) > 0 {
+				if (c.Type == "light" || c.Type == "profile") && (!urlIDRe.MatchString(c.ID) || strings.Trim(c.ID, ".") == "") { // the panel puts this id in a request path ("." and ".." aren't one)
+					return l, &layoutError{cl(i, j), fmt.Sprintf("id '%s': letters, digits, - _ . only", c.ID)}
+				}
+				switch {
+				case c.Type == "light":
+					if _, ok := c.lightEntity(); !ok {
+						return fail(`light takes {"ha": "light.x"} or a switch`)
+					}
+					if nLights++; nLights > maxLights { // each is one Home Assistant request every 5 s
+						return fail("at most %d light cards", maxLights)
+					}
+				case len(c.Value) > 0:
 					return fail("takes no value")
+				case c.Type == "profile" && c.Title == "":
+					return fail("profile needs a title")
+				}
+				if (c.Type == "light" || c.Type == "profile") && c.Src != "" {
+					return fail("takes no src")
 				}
 				if c.Unit != "" || c.Warn != nil || c.Bad != nil || c.Min != nil || c.Max != nil || c.Below {
 					return fail("takes no unit, thresholds or min/max")
@@ -1049,7 +1071,24 @@ func demoGeneralLayouts(def Layout) map[string]Layout {
 		gen("ha-tv", "status", 3, 3, "2x1", "TV", hv("media_player.living_room_tv")),
 	}}}}
 
+	// lights-demo: a profile button per moment of the day, the three demo lights (demoLights: a colour light, one
+	// that only dims, a switch) at two of the light sizes (a 2x2, two 1x2 side by side), and a wide profile. demoProfiles saves two of the five.
+	prof := func(id string, col, row int, size, title string) Card {
+		return Card{ID: id, Type: "profile", At: [2]int{col, row}, Size: cardSize(size), Title: title}
+	}
+	lightsDemo := Layout{Tabs: []Tab{{Name: "Lights", Cards: []Card{
+		prof("lt-morning", 1, 1, "1x1", "Morning"),
+		prof("lt-afternoon", 2, 1, "1x1", "Afternoon"),
+		prof("lt-evening", 3, 1, "1x1", "Evening"),
+		prof("lt-late", 4, 1, "1x1", "Late night"),
+		gen("lt-desk", "light", 1, 2, "2x2", "Desk", hv("light.desk")),
+		gen("lt-shelf", "light", 3, 2, "1x2", "Shelf", hv("light.shelf")),
+		gen("lt-fan", "light", 4, 2, "1x2", "Fan", hv("switch.fan")),
+		prof("lt-all-off", 1, 4, "2x1", "All off"),
+	}}}}
+
 	return map[string]Layout{
+		"lights-demo":   lightsDemo,
 		"ha-demo":       haDemo,
 		"json-demo":     jsonDemo,
 		"server":        {Tabs: append(slices.Clone(def.Tabs), server)},

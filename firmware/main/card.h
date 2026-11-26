@@ -30,5 +30,11 @@ void card_tap(const card_t *c);                        // runs c->def->tap (noti
 
 extern const card_type_t card_gpu, card_pool, card_alerts, card_dots, card_board, card_radar;
 extern const card_type_t card_number, card_gauge, card_bars, card_status, card_graph; // general: values(), no update()
+extern const card_type_t card_light, card_profile; // Home Assistant lights: values(), and their own touches
+
+// The light and profile cards' requests (net_light / net_profile) share one result queue, read in card_light.c.
+void card_acts_start(void);                // start reading it (each such card's create(); once is enough)
+const char *card_act_error(int status);    // a failed request's toast text (a static buffer for the odd status)
+void card_profile_result(const char *id, const char *action, int status); // card_profile.c: "apply" / "save" came back
 
 void nas_alerts_sheet(const panel_t *p); // card_alerts.c: every alert in full (tap alert-details); p may be NULL

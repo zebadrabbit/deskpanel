@@ -56,7 +56,7 @@ bottom-right; `"size": "2x3"` is 2 columns wide and 3 rows tall. Cards can't ove
 |-------|-|
 | `tabs[].name` | The tab's name, shown in the bottom bar. At most 15 bytes, no two the same; keep it to plain letters (the tab font has no accents). |
 | `cards[].id` | Any name that is yours alone, no two the same anywhere in the file, at most 23 bytes. |
-| `type` | `gpu`, `pool`, `nas-alerts`, `dots`, `board` or `radar`, or one of the general cards `number`, `gauge`, `bar`, `graph`, `status` (see [Cards](cards.md)). |
+| `type` | `gpu`, `pool`, `nas-alerts`, `dots`, `board` or `radar`, or one of the general cards `number`, `gauge`, `bar`, `graph`, `status` (see [Cards](cards.md)), or `light` or `profile` (see [Lights](lights.md)). |
 | `at` | `[column, row]`, counting from 1. |
 | `size` | `"WxH"`, one of the sizes in the table below. |
 | `src` | Where the card gets its data (below). At most 27 bytes. |
@@ -80,6 +80,8 @@ At most 6 tabs and 24 cards on a tab. The whole layout must also fit the panel's
 | `bar` | a bar filled to the value | `1x1`, `1x2`, `2x1` | none (`value`) |
 | `graph` | the last hour, one or two lines | `2x2`, `2x3`, `4x2`, `4x3` | none (`value`) |
 | `status` | a dot: up or down | `1x1`, `2x1` | none (`value`: a `{"prometheus": …}` or `{"json": …}` query only, no shortcut) |
+| `light` | a Home Assistant light or switch: tap toggles, hold for brightness and colour | `1x1`, `1x2`, `2x1`, `2x2` | none (`value`: `{"ha": "light.x"}` or a switch; see [Lights](lights.md)) |
+| `profile` | a button that sets every light card | `1x1`, `2x1` | none (`title` required; see [Lights](lights.md)) |
 
 A `4x6` card fills a whole tab, so it must be the only card on it.
 

@@ -271,6 +271,19 @@ func serve() {
 		rd = readers{prom: pr, json: js}
 		go js.run(context.Background())
 	}
+	var lt *lights // the light and profile cards: Home Assistant through js, or the demo's three lights
+	if demo {
+		lt = newDemoLights()
+	} else {
+		pf := profilesPath(os.Getenv)
+		if pf == "" {
+			log.Print("profiles: PROFILES_FILE and NOTES_FILE unset: light profiles are kept in memory only")
+		}
+		hl := newHALights(js)
+		lt = &lights{ctl: hl, prof: newProfiles(pf)}
+		go hl.run(context.Background())
+	}
+	lt.layout = layouts.layout
 	wantProm := func() {
 		instant, ranged, jsons := queriesFor(layouts.layout())
 		if pm != nil {
@@ -279,6 +292,7 @@ func serve() {
 		if js != nil {
 			js.want(jsons)
 		}
+		lt.ctl.want(lightEntities(layouts.layout()))
 	}
 	layouts.refresh(foundSources(all)) // layout.json at once; the default waits for the GPU/TrueNAS first runs
 	wantProm()
@@ -309,7 +323,7 @@ func serve() {
 	hist.live = func() []gpuStat { g, _ := gpuData(all); return g } // the fan slot shows the GPUs as /panel does
 
 	panelDoc := func() []byte { return encodePanel(slots) }
-	cardsBody := func() []byte { return cardsDoc(layouts.layout(), rd, hist) }
+	cardsBody := func() []byte { return cardsDocWith(layouts.layout(), rd, hist, lt) }
 
 	mux := http.NewServeMux()
 	addLayoutRoute(mux, token, layouts)
@@ -324,6 +338,7 @@ func serve() {
 		serveETag(w, r, panelDoc())
 	}))
 	addCardsRoute(mux, token, cardsBody)
+	addLightRoutes(mux, token, lt)
 	mux.HandleFunc("POST /api/v1/planka/cards/{id}/done", auth(token, func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		if tasks == nil {

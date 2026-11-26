@@ -148,8 +148,12 @@ func sourcesDoc(slots []*slot, pl promListing, hl haListing, cardEnv []string) m
 		if src == "" {
 			src = "none"
 		}
-		types[t] = map[string]any{"sizes": sizes, "src": src, "general": contains(generalTypes, t),
+		tt := map[string]any{"sizes": sizes, "src": src, "general": contains(generalTypes, t),
 			"tap": !contains(ownTapTypes, t), "default_tap": defaultTap(t)}
+		if t == "light" {
+			tt["entity"] = lightDomains // the Home Assistant domains its picker lists
+		}
+		types[t] = tt
 	}
 	scs := []map[string]any{}
 	for _, n := range slices.Sorted(maps.Keys(shortcuts)) {
@@ -183,6 +187,7 @@ func sourcesDoc(slots []*slot, pl promListing, hl haListing, cardEnv []string) m
 		"taps":       tapNames,
 		"units":      formatUnits,
 		"dots":       dotsSrcs,
+		"colors":     lightColors, // a light's fixed colours: name, needs (the capability bit), swatch
 		"gpus":       gpus,
 		"pools":      pools,
 		"prometheus": pl,

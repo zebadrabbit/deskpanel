@@ -202,7 +202,7 @@ const card_type_t *card_type(const char *type)
 {
     static const card_type_t *const types[] = {&card_gpu, &card_pool, &card_alerts, &card_dots, &card_board,
                                                &card_radar, &card_number, &card_gauge, &card_bars, &card_status,
-                                               &card_graph};
+                                               &card_graph, &card_light, &card_profile};
     for (size_t i = 0; i < sizeof types / sizeof types[0]; i++) {
         if (!strcmp(types[i]->type, type)) {
             return types[i];

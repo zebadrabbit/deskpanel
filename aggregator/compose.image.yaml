@@ -8,6 +8,7 @@ services:
     env_file: .env
     environment:
       NOTES_FILE: /data/notes.json # notification history survives restarts
+      # Light profiles saved from the panel go beside it, in /data/profiles.json (PROFILES_FILE in .env moves them).
       WEATHER_CACHE: /data/weather # radar basemap tiles survive restarts
       LAYOUT_FILE: /config/layout.json
     # Host networking, so health checks of services on this same host aren't dropped by its firewall; LISTEN in

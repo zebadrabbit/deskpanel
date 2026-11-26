@@ -43,6 +43,13 @@ typedef struct {
 // A finished mark-done request, if one is waiting. Never blocks.
 bool net_done_result(net_done_t *out);
 
+// Queue POST /api/v1/lights/<card>/<action> (action: "toggle", "on", "off", "bri/15", "color/blue") or
+// /api/v1/profiles/<card>/<action> ("apply", "save"). False if the queue is full. Never blocks.
+bool net_light(const char *card_id, const char *action);
+bool net_profile(const char *card_id, const char *action);
+typedef struct { char card_id[24]; char action[16]; int status; } net_act_t; // 204 done, -1 unreachable
+bool net_act_result(net_act_t *out); // a finished light or profile request, if one is waiting. Never blocks.
+
 // Tell the aggregator every note up to `upto` has been read (OK tapped / history opened).
 // Fire and forget: if it fails, the next read report covers it. Never blocks.
 bool net_mark_read(int upto);

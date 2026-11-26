@@ -531,7 +531,10 @@ func encodeCards(cards map[string]cardOut) []byte {
 
 // cardsDoc builds the /api/v1/cards document from cached values only. pr is nil
 // when PROMETHEUS_URL is unset.
-func cardsDoc(l Layout, pr promReader, h *gpuHistory) []byte {
+func cardsDoc(l Layout, pr promReader, h *gpuHistory) []byte { return cardsDocWith(l, pr, h, nil) }
+
+// cardsDocWith is cardsDoc with the light and profile cards' entries, from lt's last reads (nil: they get none).
+func cardsDocWith(l Layout, pr promReader, h *gpuHistory, lt *lights) []byte {
 	cards := map[string]cardOut{}
 	for _, t := range l.Tabs {
 		for _, c := range t.Cards {
@@ -542,6 +545,14 @@ func cardsDoc(l Layout, pr promReader, h *gpuHistory) []byte {
 				}
 			case contains(generalTypes, c.Type):
 				cards[c.ID] = generalCard(c, pr)
+			case lt != nil && c.Type == "light":
+				e, _ := c.lightEntity()
+				cards[c.ID] = lightCard(lt.ctl.state(e))
+			case lt != nil && c.Type == "profile":
+				cards[c.ID] = cardOut{}
+				if !lt.prof.has(c.ID) {
+					cards[c.ID] = cardOut{Sub: "not saved"}
+				}
 			}
 		}
 	}

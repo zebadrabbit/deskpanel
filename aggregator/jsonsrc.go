@@ -283,17 +283,25 @@ func (s *jsonSrc) fetch(ctx context.Context, sp jsonSpec) (promVal, string, erro
 // get fetches u within s.timeout with User-Agent deskpanel and, when hname isn't "", one header: the body (at most
 // limit+1 bytes, so a caller can say "reply too big") and the status.
 func (s *jsonSrc) get(ctx context.Context, u, hname, hval string) ([]byte, int, error) {
-	return s.do(ctx, &s.hc, u, hname, hval, jsonMaxBody)
+	return s.do(ctx, &s.hc, "GET", u, nil, hname, hval, jsonMaxBody)
 }
 
-func (s *jsonSrc) do(ctx context.Context, hc *http.Client, u, hname, hval string, limit int64) ([]byte, int, error) {
+// do sends one request within s.timeout; send, when not nil, is its JSON body (the lights' service calls).
+func (s *jsonSrc) do(ctx context.Context, hc *http.Client, method, u string, send []byte, hname, hval string, limit int64) ([]byte, int, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
+	var rd io.Reader
+	if send != nil {
+		rd = bytes.NewReader(send)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, u, rd)
 	if err != nil {
 		return nil, 0, err
 	}
 	req.Header.Set("User-Agent", "deskpanel")
+	if send != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	if hname != "" {
 		req.Header.Set(hname, hval)
 	}
